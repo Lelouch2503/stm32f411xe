@@ -1,0 +1,12 @@
+[
+    {
+        "directory": "c:/Users/PC/Desktop/stm32/stm32f411",
+        "command": "arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -DSTM32F411xE -D__ARM_ARCH_7EM__ -DDEBUG -Iinc -Wall -Wextra -Og -g3 -gdwarf-2 -std=gnu11 -c main.c -o build/main.o",
+        "file": "main.c"
+    },
+    {
+        "directory": "c:/Users/PC/Desktop/stm32/stm32f411",
+        "command": "arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -DSTM32F411xE -D__ARM_ARCH_7EM__ -DDEBUG -Iinc -Wall -Wextra -Og -g3 -gdwarf-2 -std=gnu11 -c src/stm32f411_rcc.c -o build/stm32f411_rcc.o",
+        "file": "src/stm32f411_rcc.c"
+    }
+]
