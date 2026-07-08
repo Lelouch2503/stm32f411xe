@@ -1,6 +1,6 @@
 /**
  * @file  main.c
- * @brief Bare-metal LED blink for STM32F411E-DISCO with RCC driver
+ * @brief Bare-metal LED blink for STM32F411E-DISCO with RCC + SysTick drivers
  *
  * Configures the system clock to 100 MHz via PLL (HSE 8 MHz)
  * and toggles all 4 user LEDs (PD12–PD15).
@@ -15,6 +15,7 @@
 
 #include "stm32f411_xe.h"
 #include "stm32f411_rcc.h"
+#include "stm32f411_systick.h"
 
 /* ---------- GPIOD raw register access (until GPIO driver exists) --- */
 #define GPIOD_MODER         (*(volatile uint32_t *)(GPIOD_BASE + 0x00U))
@@ -31,13 +32,7 @@
                               (1U << LED_RED)    | \
                               (1U << LED_BLUE))
 
-/* ---------- Simple delay ------------------------------------------ */
-static void delay(volatile uint32_t count)
-{
-    while (count--) {
-        __asm volatile ("nop");
-    }
-}
+
 
 /* ---------- Main -------------------------------------------------- */
 int main(void)
@@ -69,10 +64,20 @@ int main(void)
         /* Clock configuration failed — blink continues at HSI 16 MHz */
     }
 
-    /* 2. Enable GPIOD clock via RCC driver */
+    /*
+     * 2. Configure SysTick: 1 kHz tick (1 ms period) using AHB clock.
+     *    The driver reads HCLK from rcc_get_hclk_freq() automatically.
+     */
+    SysTick_Config_t stk = {
+        .clk_source  = SYSTICK_CLKSRC_AHB,   /* Full AHB = 100 MHz */
+        .tick_freq_hz = 1000U,                /* 1 ms tick period   */
+    };
+    systick_init(&stk);
+
+    /* 3. Enable GPIOD clock via RCC driver */
     rcc_ahb1_clk_enable(RCC_AHB1ENR_GPIODEN);
 
-    /* 3. Configure PD12–PD15 as General Purpose Output (push-pull)
+    /* 4. Configure PD12–PD15 as General Purpose Output (push-pull)
      *    MODER bits: 01 = General purpose output mode
      *    Each pin uses 2 bits in MODER register:
      *      PD12 → bits [25:24]
@@ -92,14 +97,13 @@ int main(void)
                       (1U << (LED_RED    * 2)) |
                       (1U << (LED_BLUE   * 2)));
 
-    /* 4. Blink loop */
+    /* 5. Blink loop */
     while (1) {
         /* Toggle all LEDs via XOR on ODR */
         GPIOD_ODR ^= LED_ALL_MASK;
 
-        /* ~500 ms delay at 100 MHz SYSCLK
-         * (scaled from 800000 at 16 MHz → ~5000000 at 100 MHz) */
-        delay(5000000);
+        /* Accurate 500 ms delay using SysTick */
+        systick_delay(500);
     }
 
     /* Never reached */
