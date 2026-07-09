@@ -816,6 +816,71 @@ typedef struct {
 #define SYSTICK_CALIB_NOREF                                                    \
   (1U << SYSTICK_CALIB_NOREF_Pos) /**< No external ref clock      */
 
+/* ══════════════════════════════════════════════════════════════════════
+ * Cortex-M4 Core — NVIC (Nested Vectored Interrupt Controller)
+ * Reference: ARMv7-M Architecture Reference Manual §B3.4
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── Memory Map ────────────────────────────────────────────────────── */
+#define NVIC_BASE (SCS_BASE + 0x0100UL)
+
+/* ── Register Structure ────────────────────────────────────────────── */
+typedef struct {
+  __IO uint32_t ISER[8U];               /**< Offset: 0x000 (R/W)  Interrupt Set Enable Register */
+        uint32_t RESERVED0[24U];
+  __IO uint32_t ICER[8U];               /**< Offset: 0x080 (R/W)  Interrupt Clear Enable Register */
+        uint32_t RESERVED1[24U];
+  __IO uint32_t ISPR[8U];               /**< Offset: 0x100 (R/W)  Interrupt Set Pending Register */
+        uint32_t RESERVED2[24U];
+  __IO uint32_t ICPR[8U];               /**< Offset: 0x180 (R/W)  Interrupt Clear Pending Register */
+        uint32_t RESERVED3[24U];
+  __IO uint32_t IABR[8U];               /**< Offset: 0x200 (R/W)  Interrupt Active Bit Register */
+        uint32_t RESERVED4[56U];
+  __IO uint8_t  IP[240U];               /**< Offset: 0x300 (R/W)  Interrupt Priority Register (8-bit wide) */
+        uint32_t RESERVED5[644U];
+  __O  uint32_t STIR;                   /**< Offset: 0xE00 ( /W)  Software Trigger Interrupt Register */
+} NVIC_TypeDef;
+
+/* ── Instance Macro ────────────────────────────────────────────────── */
+#define NVIC ((NVIC_TypeDef *)NVIC_BASE)
+
+/* ══════════════════════════════════════════════════════════════════════
+ * Cortex-M4 Core — System Control Block (SCB)
+ * Reference: ARMv7-M Architecture Reference Manual §B3.2
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── Memory Map ────────────────────────────────────────────────────── */
+#define SCB_BASE (SCS_BASE + 0x0D00UL)
+
+/* ── Register Structure ────────────────────────────────────────────── */
+typedef struct {
+  __I  uint32_t CPUID;                  /**< Offset: 0x000 (R/ )  CPUID Base Register */
+  __IO uint32_t ICSR;                   /**< Offset: 0x004 (R/W)  Interrupt Control and State Register */
+  __IO uint32_t VTOR;                   /**< Offset: 0x008 (R/W)  Vector Table Offset Register */
+  __IO uint32_t AIRCR;                  /**< Offset: 0x00C (R/W)  Application Interrupt and Reset Control Register */
+  __IO uint32_t SCR;                    /**< Offset: 0x010 (R/W)  System Control Register */
+  __IO uint32_t CCR;                    /**< Offset: 0x014 (R/W)  Configuration and Control Register */
+  __IO uint8_t  SHP[12U];               /**< Offset: 0x018 (R/W)  System Handlers Priority Registers (4-7, 8-11, 12-15) */
+  __IO uint32_t SHCSR;                  /**< Offset: 0x024 (R/W)  System Handler Control and State Register */
+  __IO uint32_t CFSR;                   /**< Offset: 0x028 (R/W)  Configurable Fault Status Register */
+  __IO uint32_t HFSR;                   /**< Offset: 0x02C (R/W)  HardFault Status Register */
+  __IO uint32_t DFSR;                   /**< Offset: 0x030 (R/W)  Debug Fault Status Register */
+  __IO uint32_t MMFAR;                  /**< Offset: 0x034 (R/W)  MemManage Fault Address Register */
+  __IO uint32_t BFAR;                   /**< Offset: 0x038 (R/W)  BusFault Address Register */
+  __IO uint32_t AFSR;                   /**< Offset: 0x03C (R/W)  Auxiliary Fault Status Register */
+        uint32_t RESERVED0[18U];        /**< Offset: 0x040 */
+  __IO uint32_t CPACR;                  /**< Offset: 0x088 (R/W)  Coprocessor Access Control Register */
+} SCB_TypeDef;
+
+/* ── Instance Macro ────────────────────────────────────────────────── */
+#define SCB ((SCB_TypeDef *)SCB_BASE)
+
+/* ── SCB_AIRCR bit definitions ─────────────────────────────────────── */
+#define SCB_AIRCR_VECTKEY_Pos       (16U)
+#define SCB_AIRCR_VECTKEY_Msk       (0xFFFFU << SCB_AIRCR_VECTKEY_Pos)
+#define SCB_AIRCR_PRIGROUP_Pos      (8U)
+#define SCB_AIRCR_PRIGROUP_Msk      (7U << SCB_AIRCR_PRIGROUP_Pos)
+
 #ifdef __cplusplus
 }
 #endif

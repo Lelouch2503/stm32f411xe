@@ -16,6 +16,7 @@
 #include "stm32f411_xe.h"
 #include "stm32f411_rcc.h"
 #include "stm32f411_systick.h"
+#include "stm32f411_nvic.h"
 
 /* ---------- GPIOD raw register access (until GPIO driver exists) --- */
 #define GPIOD_MODER         (*(volatile uint32_t *)(GPIOD_BASE + 0x00U))
@@ -31,12 +32,27 @@
                               (1U << LED_ORANGE) | \
                               (1U << LED_RED)    | \
                               (1U << LED_BLUE))
+/* ══════════════════════════════════════════════════════════════════════
+ * Interrupt Handlers
+ * ═════════════════════════════════════════════════════════════════════ */
 
-
+/**
+ * @brief  Tamper and TimeStamp interrupt handler.
+ * Overrides the weak alias defined in startup_stm32f411ve.s.
+ */
+void TAMP_STAMP_IRQHandler(void)
+{
+    /* Toggle Red LED (PD14) to signal the ISR has been executed */
+    GPIOD_ODR ^= (1U << LED_RED);
+}
 
 /* ---------- Main -------------------------------------------------- */
 int main(void)
 {
+    /* 0. Configure NVIC priority grouping and SysTick priority */
+    nvic_set_priority_grouping(NVIC_PRIORITY_GROUP_4);
+    nvic_set_priority(NVIC_IRQ_SYSTICK, 15U);
+
     /*
      * 1. Configure system clock: HSE 8 MHz → PLL → 100 MHz
      *
@@ -77,14 +93,7 @@ int main(void)
     /* 3. Enable GPIOD clock via RCC driver */
     rcc_ahb1_clk_enable(RCC_AHB1ENR_GPIODEN);
 
-    /* 4. Configure PD12–PD15 as General Purpose Output (push-pull)
-     *    MODER bits: 01 = General purpose output mode
-     *    Each pin uses 2 bits in MODER register:
-     *      PD12 → bits [25:24]
-     *      PD13 → bits [27:26]
-     *      PD14 → bits [29:28]
-     *      PD15 → bits [31:30]
-     */
+    /* 4. Configure PD12–PD15 as General Purpose Output (push-pull) */
     /* Clear mode bits for PD12–PD15 */
     GPIOD_MODER &= ~((3U << (LED_GREEN  * 2)) |
                       (3U << (LED_ORANGE * 2)) |
@@ -97,13 +106,20 @@ int main(void)
                       (1U << (LED_RED    * 2)) |
                       (1U << (LED_BLUE   * 2)));
 
-    /* 5. Blink loop */
-    while (1) {
-        /* Toggle all LEDs via XOR on ODR */
-        GPIOD_ODR ^= LED_ALL_MASK;
+    /* 5. Configure and Enable TAMP_STAMP interrupt in NVIC */
+    nvic_set_priority(NVIC_IRQ_TAMP_STAMP, 10U);
+    nvic_enable_irq(NVIC_IRQ_TAMP_STAMP);
 
-        /* Accurate 500 ms delay using SysTick */
+    /* 6. Main loop */
+    while (1) {
+        /* Toggle Green and Blue LEDs as main loop activity indicators */
+        GPIOD_ODR ^= ((1U << LED_GREEN) | (1U << LED_BLUE));
+
+        /* Wait 500 ms */
         systick_delay(500);
+
+        /* Trigger TAMP_STAMP interrupt via NVIC Software Pending flag */
+        nvic_set_pending_irq(NVIC_IRQ_TAMP_STAMP);
     }
 
     /* Never reached */

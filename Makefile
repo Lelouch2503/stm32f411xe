@@ -20,7 +20,7 @@
 BUILD_DIR    := build
 BUILD_TYPE   := Debug
 TOOLCHAIN    := cmake/arm-none-eabi-gcc.cmake
-TARGET       := stm32f411_blink
+TARGET       := stm32f411xe
 ELF          := $(BUILD_DIR)/$(TARGET).elf
 BIN          := $(BUILD_DIR)/$(TARGET).bin
 HEX          := $(BUILD_DIR)/$(TARGET).hex

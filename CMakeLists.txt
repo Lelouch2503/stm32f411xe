@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # ── Project ──────────────────────────────────────────────────────────
-project(stm32f411_blink
+project(stm32f411xe
     LANGUAGES C ASM
     VERSION   1.0.0
 )
