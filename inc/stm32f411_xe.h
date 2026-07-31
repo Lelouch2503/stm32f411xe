@@ -49,17 +49,27 @@ extern "C" {
 #define AHB2PERIPH_BASE (PERIPH_BASE + 0x10000000UL)
 
 /* ── Peripheral Base Addresses ─────────────────────────────────────── */
-#define PWR_BASE (APB1PERIPH_BASE + 0x7000UL)
-#define RCC_BASE (AHB1PERIPH_BASE + 0x3800UL)
+#define PWR_BASE    (APB1PERIPH_BASE + 0x7000UL)
+#define RCC_BASE    (AHB1PERIPH_BASE + 0x3800UL)
 #define FLASH_R_BASE (AHB1PERIPH_BASE + 0x3C00UL)
 
-/* GPIO base addresses (for future GPIO driver / raw access in main) */
-#define GPIOA_BASE (AHB1PERIPH_BASE + 0x0000UL)
-#define GPIOB_BASE (AHB1PERIPH_BASE + 0x0400UL)
-#define GPIOC_BASE (AHB1PERIPH_BASE + 0x0800UL)
-#define GPIOD_BASE (AHB1PERIPH_BASE + 0x0C00UL)
-#define GPIOE_BASE (AHB1PERIPH_BASE + 0x1000UL)
-#define GPIOH_BASE (AHB1PERIPH_BASE + 0x1C00UL)
+/* USART base addresses (RM0383 §2.3, Table 1) */
+#define USART2_BASE (APB1PERIPH_BASE + 0x4400UL) /**< APB1 */
+#define USART1_BASE (APB2PERIPH_BASE + 0x1000UL) /**< APB2 */
+#define USART6_BASE (APB2PERIPH_BASE + 0x1400UL) /**< APB2 */
+
+/* I2C base addresses (RM0383 §2.3, Table 1) */
+#define I2C1_BASE (APB1PERIPH_BASE + 0x5400UL) /**< APB1 */
+#define I2C2_BASE (APB1PERIPH_BASE + 0x5800UL) /**< APB1 */
+#define I2C3_BASE (APB1PERIPH_BASE + 0x5C00UL) /**< APB1 */
+
+/* GPIO base addresses */
+#define GPIOA_BASE  (AHB1PERIPH_BASE + 0x0000UL)
+#define GPIOB_BASE  (AHB1PERIPH_BASE + 0x0400UL)
+#define GPIOC_BASE  (AHB1PERIPH_BASE + 0x0800UL)
+#define GPIOD_BASE  (AHB1PERIPH_BASE + 0x0C00UL)
+#define GPIOE_BASE  (AHB1PERIPH_BASE + 0x1000UL)
+#define GPIOH_BASE  (AHB1PERIPH_BASE + 0x1C00UL)
 
 /* ══════════════════════════════════════════════════════════════════════
  * Peripheral Register Structures
@@ -564,12 +574,162 @@ typedef struct {
   } CSR;
 } PWR_TypeDef;
 
+/* ── GPIO (General Purpose I/O) ────────────────────────────────────── */
+typedef struct {
+  __IO uint32_t MODER;   /**< 0x00 GPIO port mode register                 */
+  __IO uint32_t OTYPER;  /**< 0x04 GPIO port output type register            */
+  __IO uint32_t OSPEEDR; /**< 0x08 GPIO port output speed register           */
+  __IO uint32_t PUPDR;   /**< 0x0C GPIO port pull-up/pull-down register     */
+  __I  uint32_t IDR;     /**< 0x10 GPIO port input data register            */
+  __IO uint32_t ODR;     /**< 0x14 GPIO port output data register           */
+  __O  uint32_t BSRR;    /**< 0x18 GPIO port bit set/reset register          */
+  __IO uint32_t LCKR;    /**< 0x1C GPIO port configuration lock register     */
+  __IO uint32_t AFR[2U]; /**< 0x20-0x24 GPIO alternate function registers    */
+} GPIO_TypeDef;
+
+/* ── I2C (Inter-integrated Circuit) ────────────────────────────────── */
+/* Reference: RM0383 Rev 3, Chapter 18 */
+typedef struct {
+  __IO uint32_t CR1;   /**< 0x00 Control register 1 */
+  __IO uint32_t CR2;   /**< 0x04 Control register 2 */
+  __IO uint32_t OAR1;  /**< 0x08 Own address register 1 */
+  __IO uint32_t OAR2;  /**< 0x0C Own address register 2 */
+  __IO uint32_t DR;    /**< 0x10 Data register */
+  __IO uint32_t SR1;   /**< 0x14 Status register 1 */
+  __IO uint32_t SR2;   /**< 0x18 Status register 2 */
+  __IO uint32_t CCR;   /**< 0x1C Clock control register */
+  __IO uint32_t TRISE; /**< 0x20 TRISE register */
+  __IO uint32_t FLTR;  /**< 0x24 FLTR register */
+} I2C_TypeDef;
+
+/* ── USART (Universal Synchronous/Asynchronous Receiver Transmitter) ── */
+/* Reference: RM0383 Rev 3, Chapter 19 */
+typedef struct {
+  union {
+    __IO uint32_t reg;         /**< 0x00 Status register */
+    struct {
+      __I  uint32_t PE       : 1;  /**< [0] Parity error                    */
+      __I  uint32_t FE       : 1;  /**< [1] Framing error                   */
+      __I  uint32_t NF       : 1;  /**< [2] Noise detected flag             */
+      __I  uint32_t ORE      : 1;  /**< [3] Overrun error                   */
+      __I  uint32_t IDLE     : 1;  /**< [4] IDLE line detected              */
+      __I  uint32_t RXNE     : 1;  /**< [5] Read data register not empty    */
+      __IO uint32_t TC       : 1;  /**< [6] Transmission complete           */
+      __I  uint32_t TXE      : 1;  /**< [7] Transmit data register empty    */
+      __IO uint32_t LBD      : 1;  /**< [8] LIN break detection flag        */
+      __IO uint32_t CTS      : 1;  /**< [9] CTS flag                        */
+      uint32_t               : 22; /**< [31:10] Reserved                    */
+    } bit;
+  } SR;
+
+  union {
+    __IO uint32_t reg;         /**< 0x04 Data register */
+    struct {
+      __IO uint32_t DR       : 9;  /**< [8:0] Data value                    */
+      uint32_t               : 23; /**< [31:9] Reserved                     */
+    } bit;
+  } DR;
+
+  union {
+    __IO uint32_t reg;         /**< 0x08 Baud rate register */
+    struct {
+      __IO uint32_t DIV_Fraction : 4;  /**< [3:0] Fraction of USARTDIV      */
+      __IO uint32_t DIV_Mantissa : 12; /**< [15:4] Mantissa of USARTDIV     */
+      uint32_t                   : 16; /**< [31:16] Reserved                */
+    } bit;
+  } BRR;
+
+  union {
+    __IO uint32_t reg;         /**< 0x0C Control register 1 */
+    struct {
+      __IO uint32_t SBK      : 1;  /**< [0] Send break                      */
+      __IO uint32_t RWU      : 1;  /**< [1] Receiver wakeup                 */
+      __IO uint32_t RE       : 1;  /**< [2] Receiver enable                 */
+      __IO uint32_t TE       : 1;  /**< [3] Transmitter enable               */
+      __IO uint32_t IDLEIE   : 1;  /**< [4] IDLE interrupt enable            */
+      __IO uint32_t RXNEIE   : 1;  /**< [5] RXNE interrupt enable            */
+      __IO uint32_t TCIE     : 1;  /**< [6] Transmission complete IE         */
+      __IO uint32_t TXEIE    : 1;  /**< [7] TXE interrupt enable             */
+      __IO uint32_t PEIE     : 1;  /**< [8] PE interrupt enable              */
+      __IO uint32_t PS       : 1;  /**< [9] Parity selection (0=Even,1=Odd)  */
+      __IO uint32_t PCE      : 1;  /**< [10] Parity control enable           */
+      __IO uint32_t WAKE     : 1;  /**< [11] Wakeup method                  */
+      __IO uint32_t M        : 1;  /**< [12] Word length (0=8bit, 1=9bit)   */
+      __IO uint32_t UE       : 1;  /**< [13] USART enable                   */
+      uint32_t               : 1;  /**< [14] Reserved                       */
+      __IO uint32_t OVER8    : 1;  /**< [15] Oversampling mode (0=16x,1=8x) */
+      uint32_t               : 16; /**< [31:16] Reserved                    */
+    } bit;
+  } CR1;
+
+  union {
+    __IO uint32_t reg;         /**< 0x10 Control register 2 */
+    struct {
+      __IO uint32_t ADD      : 4;  /**< [3:0] Address of the USART node     */
+      uint32_t               : 1;  /**< [4] Reserved                        */
+      __IO uint32_t LBDL     : 1;  /**< [5] LIN break detection length      */
+      __IO uint32_t LBDIE    : 1;  /**< [6] LIN break detection IE          */
+      uint32_t               : 1;  /**< [7] Reserved                        */
+      __IO uint32_t LBCL     : 1;  /**< [8] Last bit clock pulse            */
+      __IO uint32_t CPHA     : 1;  /**< [9] Clock phase                     */
+      __IO uint32_t CPOL     : 1;  /**< [10] Clock polarity                 */
+      __IO uint32_t CLKEN    : 1;  /**< [11] Clock enable                   */
+      __IO uint32_t STOP     : 2;  /**< [13:12] STOP bits                   */
+      __IO uint32_t LINEN    : 1;  /**< [14] LIN mode enable                */
+      uint32_t               : 17; /**< [31:15] Reserved                    */
+    } bit;
+  } CR2;
+
+  union {
+    __IO uint32_t reg;         /**< 0x14 Control register 3 */
+    struct {
+      __IO uint32_t EIE      : 1;  /**< [0] Error interrupt enable           */
+      __IO uint32_t IREN     : 1;  /**< [1] IrDA mode enable                */
+      __IO uint32_t IRLP     : 1;  /**< [2] IrDA low-power                  */
+      __IO uint32_t HDSEL    : 1;  /**< [3] Half-duplex selection            */
+      __IO uint32_t NACK     : 1;  /**< [4] Smartcard NACK enable            */
+      __IO uint32_t SCEN     : 1;  /**< [5] Smartcard mode enable            */
+      __IO uint32_t DMAR     : 1;  /**< [6] DMA enable receiver              */
+      __IO uint32_t DMAT     : 1;  /**< [7] DMA enable transmitter           */
+      __IO uint32_t RTSE     : 1;  /**< [8] RTS enable                      */
+      __IO uint32_t CTSE     : 1;  /**< [9] CTS enable                      */
+      __IO uint32_t CTSIE    : 1;  /**< [10] CTS interrupt enable            */
+      __IO uint32_t ONEBIT   : 1;  /**< [11] One sample bit method enable    */
+      uint32_t               : 20; /**< [31:12] Reserved                    */
+    } bit;
+  } CR3;
+
+  union {
+    __IO uint32_t reg;         /**< 0x18 Guard time and prescaler register */
+    struct {
+      __IO uint32_t PSC      : 8;  /**< [7:0] Prescaler value               */
+      __IO uint32_t GT       : 8;  /**< [15:8] Guard time value             */
+      uint32_t               : 16; /**< [31:16] Reserved                    */
+    } bit;
+  } GTPR;
+} USART_TypeDef;
+
 /* ══════════════════════════════════════════════════════════════════════
  * Peripheral Instance Macros
  * ═════════════════════════════════════════════════════════════════════ */
-#define RCC ((RCC_TypeDef *)RCC_BASE)
-#define FLASH ((FLASH_TypeDef *)FLASH_R_BASE)
-#define PWR ((PWR_TypeDef *)PWR_BASE)
+#define RCC    ((RCC_TypeDef *)RCC_BASE)
+#define FLASH  ((FLASH_TypeDef *)FLASH_R_BASE)
+#define PWR    ((PWR_TypeDef *)PWR_BASE)
+
+#define GPIOA  ((GPIO_TypeDef *)GPIOA_BASE)
+#define GPIOB  ((GPIO_TypeDef *)GPIOB_BASE)
+#define GPIOC  ((GPIO_TypeDef *)GPIOC_BASE)
+#define GPIOD  ((GPIO_TypeDef *)GPIOD_BASE)
+#define GPIOE  ((GPIO_TypeDef *)GPIOE_BASE)
+#define GPIOH  ((GPIO_TypeDef *)GPIOH_BASE)
+
+#define USART1 ((USART_TypeDef *)USART1_BASE)
+#define USART2 ((USART_TypeDef *)USART2_BASE)
+#define USART6 ((USART_TypeDef *)USART6_BASE)
+
+#define I2C1 ((I2C_TypeDef *)I2C1_BASE)
+#define I2C2 ((I2C_TypeDef *)I2C2_BASE)
+#define I2C3 ((I2C_TypeDef *)I2C3_BASE)
 
 /* ══════════════════════════════════════════════════════════════════════
  * RCC Bit Definitions
@@ -698,6 +858,44 @@ typedef struct {
 #define RCC_APB1RSTR_I2C1RST (1U << 21)
 #define RCC_APB1RSTR_I2C2RST (1U << 22)
 #define RCC_APB1RSTR_I2C3RST (1U << 23)
+
+/* ── I2C register bit definitions ──────────────────────────────────── */
+#define I2C_CR1_PE        (1U << 0)
+#define I2C_CR1_START     (1U << 8)
+#define I2C_CR1_STOP      (1U << 9)
+#define I2C_CR1_ACK       (1U << 10)
+#define I2C_CR1_POS       (1U << 11)
+#define I2C_CR1_SWRST     (1U << 15)
+
+#define I2C_CR2_FREQ_Msk  (0x3FU << 0)
+
+#define I2C_OAR1_ADD0     (1U << 0)
+#define I2C_OAR1_ADD7_Msk (0x7FU << 1)
+#define I2C_OAR1_ADDMODE  (1U << 15)
+#define I2C_OAR1_BIT14    (1U << 14)
+
+#define I2C_SR1_SB        (1U << 0)
+#define I2C_SR1_ADDR      (1U << 1)
+#define I2C_SR1_BTF       (1U << 2)
+#define I2C_SR1_ADD10     (1U << 3)
+#define I2C_SR1_STOPF     (1U << 4)
+#define I2C_SR1_RXNE      (1U << 6)
+#define I2C_SR1_TXE       (1U << 7)
+#define I2C_SR1_BERR      (1U << 8)
+#define I2C_SR1_ARLO      (1U << 9)
+#define I2C_SR1_AF        (1U << 10)
+#define I2C_SR1_OVR       (1U << 11)
+#define I2C_SR1_TIMEOUT   (1U << 14)
+
+#define I2C_SR2_MSL       (1U << 0)
+#define I2C_SR2_BUSY      (1U << 1)
+#define I2C_SR2_TRA       (1U << 2)
+
+#define I2C_CCR_CCR_Msk   (0xFFFU << 0)
+#define I2C_CCR_DUTY      (1U << 14)
+#define I2C_CCR_FS        (1U << 15)
+
+#define I2C_TRISE_TRISE_Msk (0x3FU << 0)
 #define RCC_APB1RSTR_PWRRST (1U << 28)
 
 /* ── RCC_APB2RSTR ─────────────────────────────────────────────────── */
@@ -737,6 +935,125 @@ typedef struct {
 #define PWR_CR_VOS_SCALE1 (0x3U << PWR_CR_VOS_Pos) /**< Max freq ≤100 MHz */
 #define PWR_CR_VOS_SCALE2 (0x2U << PWR_CR_VOS_Pos) /**< Max freq ≤84 MHz  */
 #define PWR_CR_VOS_SCALE3 (0x1U << PWR_CR_VOS_Pos) /**< Max freq ≤64 MHz  */
+
+/* ══════════════════════════════════════════════════════════════════════
+ * GPIO Bit Definitions
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── GPIO_LCKR ─────────────────────────────────────────────────────── */
+#define GPIO_LCKR_LCKK_Pos (16U)
+#define GPIO_LCKR_LCKK     (1U << GPIO_LCKR_LCKK_Pos)
+
+/* ══════════════════════════════════════════════════════════════════════
+ * USART Bit Definitions
+ * Reference: RM0383 Rev 3, §19.6
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── USART_SR ──────────────────────────────────────────────────────── */
+#define USART_SR_PE_Pos   (0U)
+#define USART_SR_PE       (1U << USART_SR_PE_Pos)   /**< Parity error        */
+#define USART_SR_FE_Pos   (1U)
+#define USART_SR_FE       (1U << USART_SR_FE_Pos)   /**< Framing error       */
+#define USART_SR_NF_Pos   (2U)
+#define USART_SR_NF       (1U << USART_SR_NF_Pos)   /**< Noise detected      */
+#define USART_SR_ORE_Pos  (3U)
+#define USART_SR_ORE      (1U << USART_SR_ORE_Pos)  /**< Overrun error       */
+#define USART_SR_IDLE_Pos (4U)
+#define USART_SR_IDLE     (1U << USART_SR_IDLE_Pos)  /**< IDLE line detected  */
+#define USART_SR_RXNE_Pos (5U)
+#define USART_SR_RXNE     (1U << USART_SR_RXNE_Pos)  /**< RX not empty        */
+#define USART_SR_TC_Pos   (6U)
+#define USART_SR_TC       (1U << USART_SR_TC_Pos)   /**< Transmission complete*/
+#define USART_SR_TXE_Pos  (7U)
+#define USART_SR_TXE      (1U << USART_SR_TXE_Pos)  /**< TX data reg empty   */
+#define USART_SR_LBD_Pos  (8U)
+#define USART_SR_LBD      (1U << USART_SR_LBD_Pos)  /**< LIN break detected  */
+#define USART_SR_CTS_Pos  (9U)
+#define USART_SR_CTS      (1U << USART_SR_CTS_Pos)  /**< CTS flag            */
+
+/* ── USART_BRR ─────────────────────────────────────────────────────── */
+#define USART_BRR_DIV_Fraction_Pos (0U)
+#define USART_BRR_DIV_Fraction_Msk (0xFU << USART_BRR_DIV_Fraction_Pos)
+#define USART_BRR_DIV_Mantissa_Pos (4U)
+#define USART_BRR_DIV_Mantissa_Msk (0xFFFU << USART_BRR_DIV_Mantissa_Pos)
+
+/* ── USART_CR1 ─────────────────────────────────────────────────────── */
+#define USART_CR1_SBK_Pos    (0U)
+#define USART_CR1_SBK        (1U << USART_CR1_SBK_Pos)
+#define USART_CR1_RWU_Pos    (1U)
+#define USART_CR1_RWU        (1U << USART_CR1_RWU_Pos)
+#define USART_CR1_RE_Pos     (2U)
+#define USART_CR1_RE         (1U << USART_CR1_RE_Pos)
+#define USART_CR1_TE_Pos     (3U)
+#define USART_CR1_TE         (1U << USART_CR1_TE_Pos)
+#define USART_CR1_IDLEIE_Pos (4U)
+#define USART_CR1_IDLEIE     (1U << USART_CR1_IDLEIE_Pos)
+#define USART_CR1_RXNEIE_Pos (5U)
+#define USART_CR1_RXNEIE     (1U << USART_CR1_RXNEIE_Pos)
+#define USART_CR1_TCIE_Pos   (6U)
+#define USART_CR1_TCIE       (1U << USART_CR1_TCIE_Pos)
+#define USART_CR1_TXEIE_Pos  (7U)
+#define USART_CR1_TXEIE      (1U << USART_CR1_TXEIE_Pos)
+#define USART_CR1_PEIE_Pos   (8U)
+#define USART_CR1_PEIE       (1U << USART_CR1_PEIE_Pos)
+#define USART_CR1_PS_Pos     (9U)
+#define USART_CR1_PS         (1U << USART_CR1_PS_Pos)
+#define USART_CR1_PCE_Pos    (10U)
+#define USART_CR1_PCE        (1U << USART_CR1_PCE_Pos)
+#define USART_CR1_WAKE_Pos   (11U)
+#define USART_CR1_WAKE       (1U << USART_CR1_WAKE_Pos)
+#define USART_CR1_M_Pos      (12U)
+#define USART_CR1_M          (1U << USART_CR1_M_Pos)
+#define USART_CR1_UE_Pos     (13U)
+#define USART_CR1_UE         (1U << USART_CR1_UE_Pos)
+#define USART_CR1_OVER8_Pos  (15U)
+#define USART_CR1_OVER8      (1U << USART_CR1_OVER8_Pos)
+
+/* ── USART_CR2 ─────────────────────────────────────────────────────── */
+#define USART_CR2_ADD_Pos    (0U)
+#define USART_CR2_ADD_Msk    (0xFU << USART_CR2_ADD_Pos)
+#define USART_CR2_LBDL_Pos   (5U)
+#define USART_CR2_LBDL       (1U << USART_CR2_LBDL_Pos)
+#define USART_CR2_LBDIE_Pos  (6U)
+#define USART_CR2_LBDIE      (1U << USART_CR2_LBDIE_Pos)
+#define USART_CR2_LBCL_Pos   (8U)
+#define USART_CR2_LBCL       (1U << USART_CR2_LBCL_Pos)
+#define USART_CR2_CPHA_Pos   (9U)
+#define USART_CR2_CPHA       (1U << USART_CR2_CPHA_Pos)
+#define USART_CR2_CPOL_Pos   (10U)
+#define USART_CR2_CPOL       (1U << USART_CR2_CPOL_Pos)
+#define USART_CR2_CLKEN_Pos  (11U)
+#define USART_CR2_CLKEN      (1U << USART_CR2_CLKEN_Pos)
+#define USART_CR2_STOP_Pos   (12U)
+#define USART_CR2_STOP_Msk   (0x3U << USART_CR2_STOP_Pos)
+#define USART_CR2_LINEN_Pos  (14U)
+#define USART_CR2_LINEN      (1U << USART_CR2_LINEN_Pos)
+
+/* ── USART_CR3 ─────────────────────────────────────────────────────── */
+#define USART_CR3_EIE_Pos    (0U)
+#define USART_CR3_EIE        (1U << USART_CR3_EIE_Pos)
+#define USART_CR3_IREN_Pos   (1U)
+#define USART_CR3_IREN       (1U << USART_CR3_IREN_Pos)
+#define USART_CR3_IRLP_Pos   (2U)
+#define USART_CR3_IRLP       (1U << USART_CR3_IRLP_Pos)
+#define USART_CR3_HDSEL_Pos  (3U)
+#define USART_CR3_HDSEL      (1U << USART_CR3_HDSEL_Pos)
+#define USART_CR3_NACK_Pos   (4U)
+#define USART_CR3_NACK       (1U << USART_CR3_NACK_Pos)
+#define USART_CR3_SCEN_Pos   (5U)
+#define USART_CR3_SCEN       (1U << USART_CR3_SCEN_Pos)
+#define USART_CR3_DMAR_Pos   (6U)
+#define USART_CR3_DMAR       (1U << USART_CR3_DMAR_Pos)
+#define USART_CR3_DMAT_Pos   (7U)
+#define USART_CR3_DMAT       (1U << USART_CR3_DMAT_Pos)
+#define USART_CR3_RTSE_Pos   (8U)
+#define USART_CR3_RTSE       (1U << USART_CR3_RTSE_Pos)
+#define USART_CR3_CTSE_Pos   (9U)
+#define USART_CR3_CTSE       (1U << USART_CR3_CTSE_Pos)
+#define USART_CR3_CTSIE_Pos  (10U)
+#define USART_CR3_CTSIE      (1U << USART_CR3_CTSIE_Pos)
+#define USART_CR3_ONEBIT_Pos (11U)
+#define USART_CR3_ONEBIT     (1U << USART_CR3_ONEBIT_Pos)
 
 /* ══════════════════════════════════════════════════════════════════════
  * Cortex-M4 Core — SysTick Timer

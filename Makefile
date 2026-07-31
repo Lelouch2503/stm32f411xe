@@ -36,7 +36,7 @@ OCD_TARGET   := target/stm32f4x.cfg
 GDB          := gdb-multiarch
 
 # ── Phony targets ───────────────────────────────────────────────────
-.PHONY: all build release flash clean rebuild size disasm openocd debug usb-list usb-attach help
+.PHONY: all build release flash docs clean rebuild size disasm openocd debug usb-list usb-attach help
 
 # ── Default target ──────────────────────────────────────────────────
 all: build
@@ -62,9 +62,14 @@ flash: build
 	$(OPENOCD) -s $(OCD_SCRIPTS) -f $(OCD_IFACE) -f $(OCD_TARGET) \
 		-c "program $(ELF) verify reset exit"
 
+# ── Generate Documentation (Doxygen) ────────────────────────────────
+docs:
+	doxygen Doxyfile
+	@echo ">>> Documentation generated in docs/html"
+
 # ── Clean ───────────────────────────────────────────────────────────
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) docs
 
 # ── Rebuild (clean + build) ─────────────────────────────────────────
 rebuild: clean build
@@ -121,6 +126,7 @@ help:
 	@echo "  make            Build (Debug)"
 	@echo "  make release    Build (Release, -Os)"
 	@echo "  make flash      Build + Flash via OpenOCD"
+	@echo "  make docs       Generate Doxygen documentation"
 	@echo "  make clean      Remove build directory"
 	@echo "  make rebuild    Clean + Build"
 	@echo "  make size       Print .elf section sizes"
