@@ -22,6 +22,7 @@
 #include "stm32f411_gpio.h"
 #include "stm32f411_nvic.h"
 #include "stm32f411_rcc.h"
+#include "stm32f411_spi.h"
 #include "stm32f411_systick.h"
 #include "stm32f411_usart.h"
 #include "stm32f411_xe.h"
@@ -113,21 +114,76 @@ int main(void) {
                    "\r\n=== STM32F411E-DISCO Bare-Metal USART2 Ready ===\r\n",
                    0U);
 
-  /* 7. Configure and Enable TAMP_STAMP interrupt in NVIC */
+  /*
+   * Configure SPI1 for a repeatable logic-analyzer loopback test:
+   * PA5=SCK, PA6=MISO, PA7=MOSI (all AF5), PA4=software CS (active low).
+   * PCLK2 = 100 MHz, so DIV128 produces SCK = 781.25 kHz. Connect PA7 to
+   * PA6 for the loopback data comparison.
+   */
+  SPI_Config_t spi_cfg = {
+      .mode = SPI_MODE_0,
+      .baudrate = SPI_BAUDRATE_DIV128,
+      .bit_order = SPI_BIT_ORDER_MSB_FIRST,
+  };
+  int spi_ready = (spi_init(SPI1, &spi_cfg) == 0);
+
+  GPIO_PinConfig_t spi_cs_cfg = {
+      .pin = GPIO_PIN_4,
+      .mode = GPIO_MODE_OUTPUT,
+      .otype = GPIO_OTYPE_PUSHPULL,
+      .ospeed = GPIO_OSPEED_HIGH,
+      .pupd = GPIO_PUPD_NONE,
+      .alt_func = GPIO_AF0,
+  };
+  if ((spi_ready == 0) || (gpio_init(GPIOA, &spi_cs_cfg) != 0) ||
+      (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET) != 0)) {
+    spi_ready = 0;
+    (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN, GPIO_PIN_SET);
+  }
+
+  const uint8_t spi_tx[] = {0x9AU, 0xBCU, 0xDEU, 0xF0U};
+  uint8_t spi_rx[sizeof(spi_tx)];
+
+  /* 8. Configure and Enable TAMP_STAMP interrupt in NVIC */
   nvic_set_priority(NVIC_IRQ_TAMP_STAMP, 10U);
   nvic_enable_irq(NVIC_IRQ_TAMP_STAMP);
 
   nvic_enable_irq(NVIC_IRQ_SYSTICK);
   nvic_set_priority(NVIC_IRQ_SYSTICK, 10U);
 
-  /* 8. Main loop */
+  /* 9. Main loop */
   while (1) {
     /* Toggle Green and Blue LEDs as main loop activity indicators */
     (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_GREEN_PIN);
     (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_BLUE_PIN);
 
-    /* Send heartbeat over USART2 */
-    (void)usart_puts(USART2, "heartbeat\r\n", 0U);
+    if (spi_ready != 0) {
+      int loopback_ok =
+          (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET) == 0);
+      if (loopback_ok != 0) {
+        loopback_ok = (spi_transfer(SPI1, spi_tx, spi_rx, sizeof(spi_tx),
+                                    100000U) == 0);
+      }
+      if (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET) != 0) {
+        loopback_ok = 0;
+      }
+      for (uint32_t index = 0U; (index < sizeof(spi_tx)) && (loopback_ok != 0);
+           index++) {
+        if (spi_rx[index] != spi_tx[index]) {
+          loopback_ok = 0;
+        }
+      }
+
+      if (loopback_ok != 0) {
+        (void)usart_puts(USART2, "SPI1 loopback OK\r\n", 0U);
+      } else {
+        (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN,
+                             GPIO_PIN_SET);
+        (void)usart_puts(USART2, "SPI1 loopback FAIL\r\n", 0U);
+      }
+    } else {
+      (void)usart_puts(USART2, "SPI1 init FAIL\r\n", 0U);
+    }
 
     /* Wait 500 ms */
     systick_delay(500);

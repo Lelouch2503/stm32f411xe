@@ -63,6 +63,13 @@ extern "C" {
 #define I2C2_BASE (APB1PERIPH_BASE + 0x5800UL) /**< APB1 */
 #define I2C3_BASE (APB1PERIPH_BASE + 0x5C00UL) /**< APB1 */
 
+/* SPI/I2S base addresses (RM0383, Table 1) */
+#define SPI1_BASE (APB2PERIPH_BASE + 0x3000UL) /**< APB2 */
+#define SPI2_BASE (APB1PERIPH_BASE + 0x3800UL) /**< APB1 */
+#define SPI3_BASE (APB1PERIPH_BASE + 0x3C00UL) /**< APB1 */
+#define SPI4_BASE (APB2PERIPH_BASE + 0x3400UL) /**< APB2 */
+#define SPI5_BASE (APB2PERIPH_BASE + 0x5000UL) /**< APB2 */
+
 /* GPIO base addresses */
 #define GPIOA_BASE  (AHB1PERIPH_BASE + 0x0000UL)
 #define GPIOB_BASE  (AHB1PERIPH_BASE + 0x0400UL)
@@ -602,6 +609,20 @@ typedef struct {
   __IO uint32_t FLTR;  /**< 0x24 FLTR register */
 } I2C_TypeDef;
 
+/* SPI/I2S (Serial Peripheral Interface). */
+/* Reference: RM0383, Chapter 20. */
+typedef struct {
+  __IO uint32_t CR1;     /**< 0x00 SPI control register 1 */
+  __IO uint32_t CR2;     /**< 0x04 SPI control register 2 */
+  __I  uint32_t SR;      /**< 0x08 SPI status register */
+  __IO uint32_t DR;      /**< 0x0C SPI data register */
+  __IO uint32_t CRCPR;   /**< 0x10 CRC polynomial register */
+  __I  uint32_t RXCRCR;  /**< 0x14 RX CRC register */
+  __I  uint32_t TXCRCR;  /**< 0x18 TX CRC register */
+  __IO uint32_t I2SCFGR; /**< 0x1C I2S configuration register */
+  __IO uint32_t I2SPR;   /**< 0x20 I2S prescaler register */
+} SPI_TypeDef;
+
 /* ── USART (Universal Synchronous/Asynchronous Receiver Transmitter) ── */
 /* Reference: RM0383 Rev 3, Chapter 19 */
 typedef struct {
@@ -730,6 +751,12 @@ typedef struct {
 #define I2C1 ((I2C_TypeDef *)I2C1_BASE)
 #define I2C2 ((I2C_TypeDef *)I2C2_BASE)
 #define I2C3 ((I2C_TypeDef *)I2C3_BASE)
+
+#define SPI1 ((SPI_TypeDef *)SPI1_BASE)
+#define SPI2 ((SPI_TypeDef *)SPI2_BASE)
+#define SPI3 ((SPI_TypeDef *)SPI3_BASE)
+#define SPI4 ((SPI_TypeDef *)SPI4_BASE)
+#define SPI5 ((SPI_TypeDef *)SPI5_BASE)
 
 /* ══════════════════════════════════════════════════════════════════════
  * RCC Bit Definitions
@@ -1197,6 +1224,37 @@ typedef struct {
 #define SCB_AIRCR_VECTKEY_Msk       (0xFFFFU << SCB_AIRCR_VECTKEY_Pos)
 #define SCB_AIRCR_PRIGROUP_Pos      (8U)
 #define SCB_AIRCR_PRIGROUP_Msk      (7U << SCB_AIRCR_PRIGROUP_Pos)
+
+/* SPI_CR1 bit definitions */
+#define SPI_CR1_CPHA       (1U << 0U)
+#define SPI_CR1_CPOL       (1U << 1U)
+#define SPI_CR1_MSTR       (1U << 2U)
+#define SPI_CR1_BR_Pos     (3U)
+#define SPI_CR1_BR_Msk     (7U << SPI_CR1_BR_Pos)
+#define SPI_CR1_SPE        (1U << 6U)
+#define SPI_CR1_LSBFIRST   (1U << 7U)
+#define SPI_CR1_SSI        (1U << 8U)
+#define SPI_CR1_SSM        (1U << 9U)
+#define SPI_CR1_DFF        (1U << 11U)
+#define SPI_CR1_CRCEN      (1U << 13U)
+#define SPI_CR1_BIDIOE     (1U << 14U)
+#define SPI_CR1_BIDIMODE   (1U << 15U)
+
+/* SPI_CR2 bit definitions */
+#define SPI_CR2_RXDMAEN    (1U << 0U)
+#define SPI_CR2_TXDMAEN    (1U << 1U)
+#define SPI_CR2_SSOE       (1U << 2U)
+#define SPI_CR2_ERRIE      (1U << 5U)
+#define SPI_CR2_RXNEIE     (1U << 6U)
+#define SPI_CR2_TXEIE      (1U << 7U)
+
+/* SPI_SR bit definitions */
+#define SPI_SR_RXNE        (1U << 0U)
+#define SPI_SR_TXE         (1U << 1U)
+#define SPI_SR_CRCERR       (1U << 4U)
+#define SPI_SR_MODF         (1U << 5U)
+#define SPI_SR_OVR          (1U << 6U)
+#define SPI_SR_BSY          (1U << 7U)
 
 #ifdef __cplusplus
 }
