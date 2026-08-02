@@ -47,16 +47,16 @@ void test_spi_mode3_cpol1_cpha1(void) {
 void test_spi_mode_cpol_cpha_decomposition(void) {
   /* CPHA is bit 0, CPOL is bit 1 of the mode value */
   TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_0 & 0x1); /* CPHA=0 */
-  TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_0 >> 1);   /* CPOL=0 */
+  TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_0 >> 1);  /* CPOL=0 */
 
   TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_1 & 0x1); /* CPHA=1 */
-  TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_1 >> 1);   /* CPOL=0 */
+  TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_1 >> 1);  /* CPOL=0 */
 
   TEST_ASSERT_EQUAL_UINT(0, SPI_MODE_2 & 0x1); /* CPHA=0 */
-  TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_2 >> 1);   /* CPOL=1 */
+  TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_2 >> 1);  /* CPOL=1 */
 
   TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_3 & 0x1); /* CPHA=1 */
-  TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_3 >> 1);   /* CPOL=1 */
+  TEST_ASSERT_EQUAL_UINT(1, SPI_MODE_3 >> 1);  /* CPOL=1 */
 }
 
 /* ── SPI Baud Rate Prescaler ─────────────────────────────────────── */
@@ -75,12 +75,12 @@ void test_spi_baudrate_dividers_sequential(void) {
 
 void test_spi_baudrate_actual_divisor_formula(void) {
   /* actual_divisor = 2 << BR_field_value */
-  TEST_ASSERT_EQUAL_UINT(2,   2U << SPI_BAUDRATE_DIV2);
-  TEST_ASSERT_EQUAL_UINT(4,   2U << SPI_BAUDRATE_DIV4);
-  TEST_ASSERT_EQUAL_UINT(8,   2U << SPI_BAUDRATE_DIV8);
-  TEST_ASSERT_EQUAL_UINT(16,  2U << SPI_BAUDRATE_DIV16);
-  TEST_ASSERT_EQUAL_UINT(32,  2U << SPI_BAUDRATE_DIV32);
-  TEST_ASSERT_EQUAL_UINT(64,  2U << SPI_BAUDRATE_DIV64);
+  TEST_ASSERT_EQUAL_UINT(2, 2U << SPI_BAUDRATE_DIV2);
+  TEST_ASSERT_EQUAL_UINT(4, 2U << SPI_BAUDRATE_DIV4);
+  TEST_ASSERT_EQUAL_UINT(8, 2U << SPI_BAUDRATE_DIV8);
+  TEST_ASSERT_EQUAL_UINT(16, 2U << SPI_BAUDRATE_DIV16);
+  TEST_ASSERT_EQUAL_UINT(32, 2U << SPI_BAUDRATE_DIV32);
+  TEST_ASSERT_EQUAL_UINT(64, 2U << SPI_BAUDRATE_DIV64);
   TEST_ASSERT_EQUAL_UINT(128, 2U << SPI_BAUDRATE_DIV128);
   TEST_ASSERT_EQUAL_UINT(256, 2U << SPI_BAUDRATE_DIV256);
 }
@@ -205,7 +205,8 @@ void test_usart_oversampling_8_is_1(void) {
 void test_usart_config_struct_size(void) {
   /* Must contain: baudrate(uint32) + 6 enum fields */
   TEST_ASSERT_TRUE(sizeof(USART_Config_t) > 0);
-  TEST_ASSERT_TRUE(sizeof(USART_Config_t) >= sizeof(uint32_t) + 6 * sizeof(int));
+  TEST_ASSERT_TRUE(sizeof(USART_Config_t) >=
+                   sizeof(uint32_t) + 6 * sizeof(int));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -226,9 +227,9 @@ void test_usart_brr_115200_at_50mhz_over16(void) {
 
   uint32_t usartdiv_x100;
   if (over8 == 0) {
-    usartdiv_x100 = (fck * 100U) / (16U * baud);
+    usartdiv_x100 = (uint32_t)(((uint64_t)fck * 100U) / (16U * baud));
   } else {
-    usartdiv_x100 = (fck * 100U) / (8U * baud);
+    usartdiv_x100 = (uint32_t)(((uint64_t)fck * 100U) / (8U * baud));
   }
 
   uint32_t mantissa = usartdiv_x100 / 100U;
