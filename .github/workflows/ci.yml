@@ -13,10 +13,10 @@ name: STM32F411 CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [master]
 
 # Required for GitHub Pages deployment
 permissions:
@@ -121,7 +121,7 @@ jobs:
   # ── Doxygen Documentation → GitHub Pages ───────────────────────────
   docs:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     needs: [build, static-analysis, unit-tests]
 
     permissions:
