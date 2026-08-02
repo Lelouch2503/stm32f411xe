@@ -1,0 +1,182 @@
+# ──────────────────────────────────────────────────────────────────────
+#  STM32F411 CI/CD Pipeline
+#
+#  Jobs:
+#    build          – Cross-compile Debug + Release, check Flash/RAM
+#    static-analysis – Run cppcheck on driver sources
+#    unit-tests     – Build & run Unity tests on host (x86)
+#    docs           – Generate Doxygen, deploy to GitHub Pages
+#    release        – Upload .elf/.bin/.hex on version tags
+# ──────────────────────────────────────────────────────────────────────
+
+name: STM32F411 CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+
+jobs:
+  # ── Cross-compilation ──────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Configure CMake (${{ matrix.build_type }})
+        run: |
+          cmake -B build -G "Unix Makefiles" \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-gcc.cmake \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build build -- -j$(nproc)
+
+      - name: Report binary size
+        run: arm-none-eabi-size build/stm32f411xe.elf
+
+      - name: Check Flash/RAM limits
+        run: |
+          chmod +x ci/check_size.sh
+          ci/check_size.sh build/stm32f411xe.elf
+
+      - name: Upload firmware artifacts
+        if: matrix.build_type == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-release
+          path: |
+            build/stm32f411xe.elf
+            build/stm32f411xe.bin
+            build/stm32f411xe.hex
+          retention-days: 30
+
+  # ── Static Analysis ────────────────────────────────────────────────
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck \
+            --enable=warning,style,performance,portability \
+            --error-exitcode=1 \
+            --suppressions-list=.cppcheck-suppressions.txt \
+            --inline-suppr \
+            --std=c99 \
+            -I inc/ \
+            --force \
+            --quiet \
+            src/ main.c \
+            2>&1 | tee cppcheck-report.txt
+
+      - name: Upload cppcheck report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-report
+          path: cppcheck-report.txt
+
+  # ── Unit Tests (host x86) ─────────────────────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure tests
+        run: cmake -B build-test -S test -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build tests
+        run: cmake --build build-test -- -j$(nproc)
+
+      - name: Run tests
+        run: ctest --test-dir build-test --output-on-failure --verbose
+
+  # ── Doxygen Documentation → GitHub Pages ───────────────────────────
+  docs:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build, static-analysis, unit-tests]
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Doxygen + Graphviz
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq doxygen graphviz
+
+      - name: Generate documentation
+        run: doxygen Doxyfile
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/html
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ── Release Artifacts ──────────────────────────────────────────────
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, static-analysis, unit-tests]
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Release firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-release
+          path: firmware
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            firmware/stm32f411xe.elf
+            firmware/stm32f411xe.bin
+            firmware/stm32f411xe.hex
+          generate_release_notes: true

@@ -46,7 +46,7 @@ set(SOURCES
 )
 
 # Driver source files (src/*.c)
-file(GLOB SRC_FILES src/*.c)
+file(GLOB SRC_FILES CONFIGURE_DEPENDS src/*.c)
 list(APPEND SOURCES ${SRC_FILES})
 
 # ── Include directories ─────────────────────────────────────────────

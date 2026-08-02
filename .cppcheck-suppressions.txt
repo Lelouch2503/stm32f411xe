@@ -1,0 +1,28 @@
+// ──────────────────────────────────────────────────────────────────────
+//  Cppcheck suppressions for STM32F411 bare-metal project
+//
+//  These suppress known false positives that arise from embedded
+//  coding patterns (memory-mapped registers, ISR entry points, etc.)
+// ──────────────────────────────────────────────────────────────────────
+
+// System headers (stdint.h, etc.) are not available on the CI host
+missingIncludeSystem
+
+// ISR handlers and board-init functions appear "unused" to cppcheck
+// because they are referenced only via the vector table in assembly
+unusedFunction
+
+// Memory-mapped register pointers are inherently volatile; cppcheck
+// may suggest making pointer parameters const when they point to
+// hardware registers that must remain volatile-qualified
+constParameterPointer
+constVariablePointer
+constParameter
+constVariable
+
+// Suppress "unmatched suppression" noise from inline suppressions
+unmatchedSuppression
+
+// Bitwise operations on signed integers — common in register manipulation
+// with well-defined mask values
+shiftTooManyBitsSigned
