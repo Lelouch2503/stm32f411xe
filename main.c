@@ -1,100 +1,190 @@
 /**
- * @file  main.c
- * @brief Bare-metal demo for STM32F411E-DISCO with GPIO, RCC, SysTick & USART
- *
- * Configures the system clock to 100 MHz via PLL (HSE 8 MHz),
- * initializes USART2 at 115200 baud (PA2 TX, PA3 RX), and
- * toggles user LEDs (PD12–PD15) while sending periodic heartbeats.
- * No HAL, no CMSIS — pure bare-metal.
- *
- * LED mapping (STM32F411E-DISCO):
- *   LD4 (Green)  → PD12
- *   LD3 (Orange) → PD13
- *   LD5 (Red)    → PD14
- *   LD6 (Blue)   → PD15
- *
- * USART2 wiring (external USB-to-UART adapter):
- *   PA2  → Adapter RX
- *   PA3  → Adapter TX
- *   GND  → Adapter GND
+ * @file    main.c
+ * @brief   Mini-RTOS demonstration for STM32F411E-DISCO.
  */
 
+#include "rtos.h"
 #include "stm32f411_gpio.h"
 #include "stm32f411_nvic.h"
 #include "stm32f411_rcc.h"
-#include "stm32f411_spi.h"
-#include "stm32f411_systick.h"
 #include "stm32f411_usart.h"
-#include "stm32f411_xe.h"
 
-/* ══════════════════════════════════════════════════════════════════════
- * Interrupt Handlers
- * ═════════════════════════════════════════════════════════════════════ */
+#define DEMO_EVENT_QUEUE_LENGTH 16U
+#define DEMO_TASK_STACK_WORDS   256U
 
-/**
- * @brief  Tamper and TimeStamp interrupt handler.
- * Overrides the weak alias defined in startup_stm32f411ve.s.
- */
-void TAMP_STAMP_IRQHandler(void) {
-  /* Toggle Red LED (PD14) via GPIO driver to signal ISR execution */
-  (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_RED_PIN);
+typedef enum {
+  DEMO_EVENT_GREEN = 1,
+  DEMO_EVENT_BLUE,
+  DEMO_EVENT_IRQ
+} DemoEventId_t;
+
+typedef struct {
+  uint32_t event_id;
+  uint32_t task_id;
+  uint32_t tick;
+} DemoEvent_t;
+
+static RTOS_Task_t green_task_control;
+static RTOS_Task_t blue_task_control;
+static RTOS_Task_t irq_trigger_task_control;
+static RTOS_Task_t irq_event_task_control;
+static RTOS_Task_t logger_task_control;
+static RTOS_Task_t diagnostics_task_control;
+
+RTOS_STACK_DEFINE(green_task_stack, DEMO_TASK_STACK_WORDS);
+RTOS_STACK_DEFINE(blue_task_stack, DEMO_TASK_STACK_WORDS);
+RTOS_STACK_DEFINE(irq_trigger_task_stack, DEMO_TASK_STACK_WORDS);
+RTOS_STACK_DEFINE(irq_event_task_stack, DEMO_TASK_STACK_WORDS);
+RTOS_STACK_DEFINE(logger_task_stack, DEMO_TASK_STACK_WORDS);
+RTOS_STACK_DEFINE(diagnostics_task_stack, DEMO_TASK_STACK_WORDS);
+
+static RTOS_Semaphore_t irq_semaphore;
+static RTOS_Mutex_t uart_mutex;
+static RTOS_Queue_t event_queue;
+static DemoEvent_t event_storage[DEMO_EVENT_QUEUE_LENGTH];
+static volatile uint32_t dropped_log_count;
+
+static void demo_fail(void) {
+  (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN, GPIO_PIN_SET);
+  while (1) {
+  }
 }
 
-/* ---------- Main -------------------------------------------------- */
-int main(void) {
-  /* 0. Configure NVIC priority grouping and SysTick priority */
-  nvic_set_priority_grouping(NVIC_PRIORITY_GROUP_4);
-  nvic_set_priority(NVIC_IRQ_SYSTICK, 15U);
-
-  /*
-   * 1. Configure system clock: HSE 8 MHz → PLL → 100 MHz
-   *
-   *    VCO input  = HSE / PLLM = 8 / 4  = 2 MHz
-   *    VCO output = VCO_in × PLLN = 2 × 200 = 400 MHz
-   *    SYSCLK     = VCO / PLLP = 400 / 4 = 100 MHz
-   *    USB/SDIO   = VCO / PLLQ = 400 / 8 =  50 MHz
-   */
-  RCC_ClkInit_t clk = {
-      .sysclk_src = RCC_SYSCLK_PLL,
-      .ahb_prescaler = RCC_AHB_DIV1,          /* HCLK  = 100 MHz */
-      .apb1_prescaler = RCC_APB_DIV2,         /* PCLK1 =  50 MHz (APB1 max) */
-      .apb2_prescaler = RCC_APB_DIV1,         /* PCLK2 = 100 MHz */
-      .flash_latency = RCC_FLASH_LATENCY_3WS, /* 3 WS for 100 MHz @ 3.3 V */
-      .pll =
-          {
-              .PLL_Source = RCC_PLLSRC_HSE,
-              .PLLM = 4,
-              .PLLN = 200,
-              .PLLP = RCC_PLLP_DIV4,
-              .PLLQ = 8,
-          },
-  };
-
-  if (rcc_sys_clk_config(&clk) != 0) {
-    /* Clock configuration failed — blink continues at HSI 16 MHz */
+static void demo_send_event(DemoEventId_t event_id, uint32_t task_id) {
+  DemoEvent_t event;
+  event.event_id = (uint32_t)event_id;
+  event.task_id = task_id;
+  event.tick = rtos_tick_get();
+  if (rtos_queue_send(&event_queue, &event, 0U) != RTOS_OK) {
+    dropped_log_count++;
   }
+}
 
-  /*
-   * 2. Configure SysTick: 1 kHz tick (1 ms period) using AHB clock.
-   *    The driver reads HCLK from rcc_get_hclk_freq() automatically.
-   */
-  SysTick_Config_t stk = {
-      .clk_source = SYSTICK_CLKSRC_AHB, /* Full AHB = 100 MHz */
-      .tick_freq_hz = 1000U,            /* 1 ms tick period   */
+static void demo_uart_write_u32(uint32_t value) {
+  char buffer[11];
+  uint32_t index = 0U;
+  uint8_t output;
+
+  do {
+    buffer[index++] = (char)('0' + (value % 10U));
+    value /= 10U;
+  } while ((value != 0U) && (index < sizeof(buffer)));
+
+  while (index != 0U) {
+    index--;
+    output = (uint8_t)buffer[index];
+    (void)usart_transmit(USART2, &output, 1U, 0U);
+  }
+}
+
+static void green_task(void *argument) {
+  (void)argument;
+  while (1) {
+    (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_GREEN_PIN);
+    demo_send_event(DEMO_EVENT_GREEN, 1U);
+    (void)rtos_task_delay(250U);
+  }
+}
+
+static void blue_task(void *argument) {
+  (void)argument;
+  while (1) {
+    (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_BLUE_PIN);
+    demo_send_event(DEMO_EVENT_BLUE, 2U);
+    (void)rtos_task_delay(500U);
+  }
+}
+
+static void irq_trigger_task(void *argument) {
+  (void)argument;
+  while (1) {
+    (void)rtos_task_delay(1000U);
+    (void)nvic_set_pending_irq(NVIC_IRQ_TAMP_STAMP);
+  }
+}
+
+static void irq_event_task(void *argument) {
+  (void)argument;
+  while (1) {
+    if (rtos_semaphore_take(&irq_semaphore, RTOS_WAIT_FOREVER) == RTOS_OK) {
+      (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_RED_PIN);
+      demo_send_event(DEMO_EVENT_IRQ, 3U);
+    }
+  }
+}
+
+static void logger_task(void *argument) {
+  DemoEvent_t event;
+  const char *name;
+  (void)argument;
+
+  while (1) {
+    if (rtos_queue_receive(&event_queue, &event, RTOS_WAIT_FOREVER) !=
+        RTOS_OK) {
+      continue;
+    }
+    if (event.event_id == DEMO_EVENT_GREEN) {
+      name = "green";
+    } else if (event.event_id == DEMO_EVENT_BLUE) {
+      name = "blue";
+    } else {
+      name = "irq";
+    }
+
+    if (rtos_mutex_lock(&uart_mutex, RTOS_WAIT_FOREVER) == RTOS_OK) {
+      (void)usart_puts(USART2, "event=", 0U);
+      (void)usart_puts(USART2, name, 0U);
+      (void)usart_puts(USART2, " task=", 0U);
+      demo_uart_write_u32(event.task_id);
+      (void)usart_puts(USART2, " tick=", 0U);
+      demo_uart_write_u32(event.tick);
+      (void)usart_puts(USART2, "\r\n", 0U);
+      (void)rtos_mutex_unlock(&uart_mutex);
+    }
+  }
+}
+
+static void diagnostics_task(void *argument) {
+  (void)argument;
+  while (1) {
+    (void)rtos_task_delay(2000U);
+    if (rtos_mutex_lock(&uart_mutex, RTOS_WAIT_FOREVER) == RTOS_OK) {
+      (void)usart_puts(USART2, "diag tick=", 0U);
+      demo_uart_write_u32(rtos_tick_get());
+      (void)usart_puts(USART2, " dropped=", 0U);
+      demo_uart_write_u32(dropped_log_count);
+      (void)usart_puts(USART2, "\r\n", 0U);
+      (void)rtos_mutex_unlock(&uart_mutex);
+    }
+  }
+}
+
+void TAMP_STAMP_IRQHandler(void) {
+  (void)rtos_semaphore_give_from_isr(&irq_semaphore);
+}
+
+void rtos_fault_hook(RTOS_FaultReason_t reason, const RTOS_Task_t *task) {
+  (void)reason;
+  (void)task;
+  (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN, GPIO_PIN_SET);
+}
+
+int main(void) {
+  RCC_ClkInit_t clock_config = {
+      .sysclk_src = RCC_SYSCLK_PLL,
+      .ahb_prescaler = RCC_AHB_DIV1,
+      .apb1_prescaler = RCC_APB_DIV2,
+      .apb2_prescaler = RCC_APB_DIV1,
+      .flash_latency = RCC_FLASH_LATENCY_3WS,
+      .pll = {
+          .PLL_Source = RCC_PLLSRC_HSE,
+          .PLLM = 4,
+          .PLLN = 200,
+          .PLLP = RCC_PLLP_DIV4,
+          .PLLQ = 8,
+      },
   };
-  systick_init(&stk);
-
-  /* 3. Initialize Discovery board user LEDs (PD12–PD15) via GPIO driver */
-  (void)gpio_disco_leds_init();
-
-  /* 4. Initialize Discovery board user button (PA0) via GPIO driver */
-  (void)gpio_disco_button_init();
-
-  /*
-   * 5. Initialize USART2: 115200 baud, 8N1, TX+RX, 16x oversampling
-   *    GPIO PA2 (TX) and PA3 (RX) are auto-configured by the driver.
-   */
-  USART_Config_t uart_cfg = {
+  USART_Config_t uart_config = {
       .baudrate = 115200U,
       .word_length = USART_WORDLEN_8BIT,
       .parity = USART_PARITY_NONE,
@@ -103,95 +193,68 @@ int main(void) {
       .mode = USART_MODE_TX_RX,
       .oversampling = USART_OVERSAMPLING_16,
   };
+  RTOS_Config_t rtos_config = {
+      .tick_hz = RTOS_DEFAULT_TICK_HZ,
+      .max_syscall_irq_priority = RTOS_DEFAULT_MAX_SYSCALL_IRQ,
+  };
+  int rc;
 
-  if (usart_init(USART2, &uart_cfg) != 0) {
-    /* USART initialization failed — signal with Orange LED */
-    (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN, GPIO_PIN_SET);
+  rc = rcc_sys_clk_config(&clock_config);
+  if (gpio_disco_leds_init() != 0) {
+    while (1) {
+    }
+  }
+  if (rc != 0) {
+    demo_fail();
+  }
+  if (usart_init(USART2, &uart_config) != 0) {
+    demo_fail();
+  }
+  if (rtos_init(&rtos_config) != RTOS_OK) {
+    demo_fail();
+  }
+  if ((rtos_semaphore_init(&irq_semaphore, 0U, 1U) != RTOS_OK) ||
+      (rtos_mutex_init(&uart_mutex) != RTOS_OK) ||
+      (rtos_queue_init(&event_queue, event_storage,
+                       DEMO_EVENT_QUEUE_LENGTH,
+                       sizeof(DemoEvent_t)) != RTOS_OK)) {
+    demo_fail();
   }
 
-  /* 6. Send startup banner over USART2 */
+  if ((rtos_task_create_static(&green_task_control, green_task, (void *)0,
+                               green_task_stack, DEMO_TASK_STACK_WORDS, 2U,
+                               "green") != RTOS_OK) ||
+      (rtos_task_create_static(&blue_task_control, blue_task, (void *)0,
+                               blue_task_stack, DEMO_TASK_STACK_WORDS, 2U,
+                               "blue") != RTOS_OK) ||
+      (rtos_task_create_static(&irq_trigger_task_control, irq_trigger_task,
+                               (void *)0, irq_trigger_task_stack,
+                               DEMO_TASK_STACK_WORDS, 1U,
+                               "irq-trigger") != RTOS_OK) ||
+      (rtos_task_create_static(&irq_event_task_control, irq_event_task,
+                               (void *)0, irq_event_task_stack,
+                               DEMO_TASK_STACK_WORDS, 4U,
+                               "irq-event") != RTOS_OK) ||
+      (rtos_task_create_static(&logger_task_control, logger_task, (void *)0,
+                               logger_task_stack, DEMO_TASK_STACK_WORDS, 3U,
+                               "logger") != RTOS_OK) ||
+      (rtos_task_create_static(&diagnostics_task_control, diagnostics_task,
+                               (void *)0, diagnostics_task_stack,
+                               DEMO_TASK_STACK_WORDS, 1U,
+                               "diagnostics") != RTOS_OK)) {
+    demo_fail();
+  }
+
+  (void)nvic_set_priority(NVIC_IRQ_TAMP_STAMP, 6U);
+  (void)nvic_clear_pending_irq(NVIC_IRQ_TAMP_STAMP);
+  (void)nvic_enable_irq(NVIC_IRQ_TAMP_STAMP);
   (void)usart_puts(USART2,
-                   "\r\n=== STM32F411E-DISCO Bare-Metal USART2 Ready ===\r\n",
+                   "\r\n=== STM32F411E-DISCO mini-RTOS start ===\r\n",
                    0U);
 
-  /*
-   * Configure SPI1 for a repeatable logic-analyzer loopback test:
-   * PA5=SCK, PA6=MISO, PA7=MOSI (all AF5), PA4=software CS (active low).
-   * PCLK2 = 100 MHz, so DIV128 produces SCK = 781.25 kHz. Connect PA7 to
-   * PA6 for the loopback data comparison.
-   */
-  SPI_Config_t spi_cfg = {
-      .mode = SPI_MODE_0,
-      .baudrate = SPI_BAUDRATE_DIV128,
-      .bit_order = SPI_BIT_ORDER_MSB_FIRST,
-  };
-  int spi_ready = (spi_init(SPI1, &spi_cfg) == 0);
-
-  GPIO_PinConfig_t spi_cs_cfg = {
-      .pin = GPIO_PIN_4,
-      .mode = GPIO_MODE_OUTPUT,
-      .otype = GPIO_OTYPE_PUSHPULL,
-      .ospeed = GPIO_OSPEED_HIGH,
-      .pupd = GPIO_PUPD_NONE,
-      .alt_func = GPIO_AF0,
-  };
-  if ((spi_ready == 0) || (gpio_init(GPIOA, &spi_cs_cfg) != 0) ||
-      (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET) != 0)) {
-    spi_ready = 0;
-    (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN, GPIO_PIN_SET);
+  if (rtos_start() != RTOS_OK) {
+    demo_fail();
   }
-
-  const uint8_t spi_tx[] = {0x9AU, 0xBCU, 0xDEU, 0xF0U};
-  uint8_t spi_rx[sizeof(spi_tx)];
-
-  /* 8. Configure and Enable TAMP_STAMP interrupt in NVIC */
-  nvic_set_priority(NVIC_IRQ_TAMP_STAMP, 10U);
-  nvic_enable_irq(NVIC_IRQ_TAMP_STAMP);
-
-  nvic_enable_irq(NVIC_IRQ_SYSTICK);
-  nvic_set_priority(NVIC_IRQ_SYSTICK, 10U);
-
-  /* 9. Main loop */
-  while (1) {
-    /* Toggle Green and Blue LEDs as main loop activity indicators */
-    (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_GREEN_PIN);
-    (void)gpio_toggle_pin(DISCO_LED_PORT, DISCO_LED_BLUE_PIN);
-
-    if (spi_ready != 0) {
-      int loopback_ok =
-          (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET) == 0);
-      if (loopback_ok != 0) {
-        loopback_ok = (spi_transfer(SPI1, spi_tx, spi_rx, sizeof(spi_tx),
-                                    100000U) == 0);
-      }
-      if (gpio_write_pin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET) != 0) {
-        loopback_ok = 0;
-      }
-      for (uint32_t index = 0U; (index < sizeof(spi_tx)) && (loopback_ok != 0);
-           index++) {
-        if (spi_rx[index] != spi_tx[index]) {
-          loopback_ok = 0;
-        }
-      }
-
-      if (loopback_ok != 0) {
-        (void)usart_puts(USART2, "SPI1 loopback OK\r\n", 0U);
-      } else {
-        (void)gpio_write_pin(DISCO_LED_PORT, DISCO_LED_ORANGE_PIN,
-                             GPIO_PIN_SET);
-        (void)usart_puts(USART2, "SPI1 loopback FAIL\r\n", 0U);
-      }
-    } else {
-      (void)usart_puts(USART2, "SPI1 init FAIL\r\n", 0U);
-    }
-
-    /* Wait 500 ms */
-    systick_delay(500);
-
-    /* Trigger TAMP_STAMP interrupt via NVIC Software Pending flag */
-    nvic_set_pending_irq(NVIC_IRQ_TAMP_STAMP);
-  }
-
-  /* Never reached */
+  demo_fail();
   return 0;
 }

@@ -23,9 +23,15 @@ extern "C" {
 /* ══════════════════════════════════════════════════════════════════════
  * IO Access Qualifiers
  * ═════════════════════════════════════════════════════════════════════ */
+#ifndef __IO
 #define __IO volatile      /**< Read / Write access            */
+#endif
+#ifndef __I
 #define __I volatile const /**< Read-only access               */
+#endif
+#ifndef __O
 #define __O volatile       /**< Write-only access              */
+#endif
 
 /* ══════════════════════════════════════════════════════════════════════
  * Clock Source Default Values
@@ -1219,11 +1225,21 @@ typedef struct {
 /* ── Instance Macro ────────────────────────────────────────────────── */
 #define SCB ((SCB_TypeDef *)SCB_BASE)
 
+/* -- SCB_ICSR bit definitions --------------------------------------- */
+#define SCB_ICSR_PENDSVCLR (1UL << 27U)
+#define SCB_ICSR_PENDSVSET (1UL << 28U)
+
 /* ── SCB_AIRCR bit definitions ─────────────────────────────────────── */
 #define SCB_AIRCR_VECTKEY_Pos       (16U)
 #define SCB_AIRCR_VECTKEY_Msk       (0xFFFFU << SCB_AIRCR_VECTKEY_Pos)
 #define SCB_AIRCR_PRIGROUP_Pos      (8U)
 #define SCB_AIRCR_PRIGROUP_Msk      (7U << SCB_AIRCR_PRIGROUP_Pos)
+
+/* -- Cortex-M4 floating-point context control ----------------------- */
+#define FPU_FPCCR_ADDRESS 0xE000EF34UL
+#define FPU_FPCCR (*((__IO uint32_t *)FPU_FPCCR_ADDRESS))
+#define FPU_FPCCR_LSPEN (1UL << 30U)
+#define FPU_FPCCR_ASPEN (1UL << 31U)
 
 /* SPI_CR1 bit definitions */
 #define SPI_CR1_CPHA       (1U << 0U)

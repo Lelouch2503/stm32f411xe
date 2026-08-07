@@ -71,3 +71,19 @@ target_include_directories(test_periph_config PRIVATE
 )
 target_link_libraries(test_periph_config PRIVATE unity)
 add_test(NAME periph_config COMMAND test_periph_config)
+
+# Test 4: RTOS scheduler, timing, and IPC logic with a host port mock
+add_executable(test_rtos
+  test_rtos.c
+  support/rtos_host_port.c
+  ../src/rtos_kernel.c
+  ../src/rtos_ipc.c
+)
+target_compile_definitions(test_rtos PRIVATE RTOS_HOST_TEST=1)
+target_include_directories(test_rtos PRIVATE
+  ${TEST_SUPPORT_DIR}
+  ${PROJECT_INC_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
+target_link_libraries(test_rtos PRIVATE unity)
+add_test(NAME rtos COMMAND test_rtos)

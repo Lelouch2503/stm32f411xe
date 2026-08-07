@@ -44,11 +44,11 @@ g_pfnVectors:
     .word   0                       /* 0x0020  Reserved                        */
     .word   0                       /* 0x0024  Reserved                        */
     .word   0                       /* 0x0028  Reserved                        */
-    .word   SVC_Handler             /* 0x002C  SVCall                          */
+    .word   SVC_Handler             /* 0x002C  SVCall (RTOS task start / system call) */
     .word   DebugMon_Handler        /* 0x0030  Debug Monitor                   */
     .word   0                       /* 0x0034  Reserved                        */
-    .word   PendSV_Handler          /* 0x0038  PendSV                          */
-    .word   SysTick_Handler         /* 0x003C  SysTick                         */
+    .word   PendSV_Handler          /* 0x0038  PendSV (RTOS task context switch)      */
+    .word   SysTick_Handler         /* 0x003C  SysTick (RTOS system tick timer)       */
 
     /* STM32F411 peripheral interrupts (IRQ 0 – 85) */
     .word   WWDG_IRQHandler                 /* IRQ  0  */
@@ -173,10 +173,18 @@ Reset_Handler:
     cmp     r0, r1
     blt     .L_zero_loop
 
-    /* 4. Call the application entry point */
+    /* 4. Enable CP10/CP11 before any hard-float C code executes. */
+    ldr     r0, =0xE000ED88
+    ldr     r1, [r0]
+    orr     r1, r1, #(0xFU << 20)
+    str     r1, [r0]
+    dsb
+    isb
+
+    /* 5. Call the application entry point */
     bl      main
 
-    /* 5. If main() ever returns, hang here */
+    /* 6. If main() ever returns, hang here */
 .L_hang:
     b       .L_hang
 
@@ -208,6 +216,7 @@ Default_Handler:
     .weak   UsageFault_Handler
     .thumb_set UsageFault_Handler, Default_Handler
 
+    /* RTOS core exception handler weak aliases (overridden when rtos_port.s is linked) */
     .weak   SVC_Handler
     .thumb_set SVC_Handler, Default_Handler
 

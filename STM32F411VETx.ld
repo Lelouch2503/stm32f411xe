@@ -10,8 +10,8 @@
 _estack = ORIGIN(RAM) + LENGTH(RAM);
 
 /* Generate a link error if heap+stack don't fit in RAM */
-_Min_Heap_Size  = 0x200;  /* 512 bytes */
-_Min_Stack_Size = 0x400;  /* 1 KB      */
+_Min_Heap_Size  = 0x000;  /* No heap: RTOS objects are statically allocated */
+_Min_Stack_Size = 0x800;  /* 2 KB exception/main stack                    */
 
 MEMORY
 {

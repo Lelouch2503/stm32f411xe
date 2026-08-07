@@ -6,6 +6,10 @@ project(stm32f411xe
     VERSION   1.0.0
 )
 
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
 # ── MCU / Target flags ──────────────────────────────────────────────
 set(MCU_FLAGS
     -mcpu=cortex-m4
@@ -43,6 +47,7 @@ endif()
 set(SOURCES
     main.c
     startup/startup_stm32f411ve.s
+    startup/rtos_port.s
 )
 
 # Driver source files (src/*.c)

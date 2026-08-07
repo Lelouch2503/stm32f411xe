@@ -16,6 +16,11 @@
 #include "stm32f411_systick.h"
 #include "stm32f411_rcc.h"
 
+/* Internal integration API used by the RTOS kernel. */
+int systick_configure_stopped(const SysTick_Config_t *cfg);
+void systick_start_internal(void);
+int systick_register_kernel_hook(void (*hook)(void));
+
 /* ══════════════════════════════════════════════════════════════════════
  * Private State
  * ═════════════════════════════════════════════════════════════════════ */
@@ -34,6 +39,9 @@ static SysTick_Config_t systick_saved_cfg;
 /** Flag: has systick_init() been called at least once? */
 static uint8_t systick_initialized = 0U;
 
+/** Optional kernel hook, invoked after the shared tick counter advances. */
+static void (*systick_kernel_hook)(void) = (void (*)(void))0;
+
 /* ══════════════════════════════════════════════════════════════════════
  * Private Helpers
  * ═════════════════════════════════════════════════════════════════════ */
@@ -46,6 +54,9 @@ static uint8_t systick_initialized = 0U;
  * @retval -1   Invalid config or RELOAD exceeds 24-bit limit
  */
 static int systick_configure(const SysTick_Config_t *cfg) {
+  if (cfg == (const SysTick_Config_t *)0) {
+    return -1;
+  }
   /* Validate tick frequency */
   if (cfg->tick_freq_hz == 0U) {
     return -1;
@@ -78,8 +89,8 @@ static int systick_configure(const SysTick_Config_t *cfg) {
   /* 3. Clear current value (writing any value to VAL clears it) */
   SYSTICK->VAL.reg = 0U;
 
-  /* 4. Configure clock source, interrupt, and enable counting */
-  uint32_t ctrl = SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE;
+  /* 4. Select the clock source. Starting is a separate operation. */
+  uint32_t ctrl = 0U;
   if (cfg->clk_source == SYSTICK_CLKSRC_AHB) {
     ctrl |= SYSTICK_CTRL_CLKSOURCE;
   }
@@ -97,34 +108,65 @@ static int systick_configure(const SysTick_Config_t *cfg) {
  * is needed.
  * ═════════════════════════════════════════════════════════════════════ */
 
-void SysTick_Handler(void) { systick_ticks++; }
+void SysTick_Handler(void) {
+  systick_ticks++;
+  if (systick_kernel_hook != (void (*)(void))0) {
+    systick_kernel_hook();
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
  * Public API — Initialization
  * ═════════════════════════════════════════════════════════════════════ */
 
 int systick_init(const SysTick_Config_t *cfg) {
-  int rc = systick_configure(cfg);
+  int rc = systick_configure_stopped(cfg);
   if (rc != 0) {
     return rc;
   }
-
-  /* Save config for later use by systick_update_freq() */
-  systick_saved_cfg = *cfg;
-  systick_initialized = 1U;
-
-  /* Reset tick counter */
-  systick_ticks = 0U;
-
+  systick_start_internal();
   return 0;
 }
 
 int systick_update_freq(void) {
+  uint32_t was_running;
+  int rc;
   if (!systick_initialized) {
     return -2;
   }
+  was_running = SYSTICK->CTRL.reg &
+                (SYSTICK_CTRL_ENABLE | SYSTICK_CTRL_TICKINT);
+  rc = systick_configure(&systick_saved_cfg);
+  if ((rc == 0) && (was_running != 0U)) {
+    systick_start_internal();
+  }
+  return rc;
+}
 
-  return systick_configure(&systick_saved_cfg);
+int systick_configure_stopped(const SysTick_Config_t *cfg) {
+  int rc = systick_configure(cfg);
+  if (rc != 0) {
+    return rc;
+  }
+  systick_saved_cfg = *cfg;
+  systick_initialized = 1U;
+  systick_ticks = 0U;
+  return 0;
+}
+
+void systick_start_internal(void) {
+  SYSTICK->VAL.reg = 0U;
+  SYSTICK->CTRL.reg |= SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE;
+}
+
+int systick_register_kernel_hook(void (*hook)(void)) {
+  if ((hook == (void (*)(void))0) ||
+      ((systick_kernel_hook != (void (*)(void))0) &&
+       (systick_kernel_hook != hook))) {
+    return -1;
+  }
+  systick_kernel_hook = hook;
+  return 0;
 }
 
 /* ══════════════════════════════════════════════════════════════════════

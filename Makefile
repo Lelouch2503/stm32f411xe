@@ -18,6 +18,7 @@
 
 # ── Configuration ───────────────────────────────────────────────────
 BUILD_DIR    := build
+TEST_DIR     := build-test
 BUILD_TYPE   := Debug
 TOOLCHAIN    := cmake/arm-none-eabi-gcc.cmake
 TARGET       := stm32f411xe
@@ -69,7 +70,7 @@ docs:
 
 # ── Clean ───────────────────────────────────────────────────────────
 clean:
-	rm -rf $(BUILD_DIR) docs
+	rm -rf $(BUILD_DIR) docs $(TEST_DIR)
 
 # ── Rebuild (clean + build) ─────────────────────────────────────────
 rebuild: clean build
