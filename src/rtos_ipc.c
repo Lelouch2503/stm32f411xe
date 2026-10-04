@@ -248,8 +248,7 @@ static void rtos_queue_pop(RTOS_Queue_t *queue, void *item) {
 }
 
 static int rtos_queue_send_common(RTOS_Queue_t *queue, const void *item) {
-  RTOS_Task_t *receiver =
-      rtos_kernel_find_waiter(RTOS_WAIT_QUEUE_RECEIVE, queue);
+  RTOS_Task_t *receiver = rtos_kernel_find_waiter(RTOS_WAIT_QUEUE_RECEIVE, queue);
   if (receiver != (RTOS_Task_t *)0) {
     rtos_copy_bytes(receiver->wait_buffer, item, queue->item_size);
     rtos_kernel_wake_task(receiver, RTOS_OK);

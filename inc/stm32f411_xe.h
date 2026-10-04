@@ -45,6 +45,13 @@ extern "C" {
 #endif
 
 /* ══════════════════════════════════════════════════════════════════════
+ * Common macro
+ * ═════════════════════════════════════════════════════════════════════ */
+
+#define _ENABLE  1U
+#define _DISABLE 0U
+
+/* ══════════════════════════════════════════════════════════════════════
  * Memory Map — Base Addresses
  * ═════════════════════════════════════════════════════════════════════ */
 #define PERIPH_BASE 0x40000000UL
@@ -83,6 +90,10 @@ extern "C" {
 #define GPIOD_BASE  (AHB1PERIPH_BASE + 0x0C00UL)
 #define GPIOE_BASE  (AHB1PERIPH_BASE + 0x1000UL)
 #define GPIOH_BASE  (AHB1PERIPH_BASE + 0x1C00UL)
+
+/* DMA base addresses */
+#define DMA1_BASE   (AHB1PERIPH_BASE + 0x6000UL)
+#define DMA2_BASE   (AHB1PERIPH_BASE + 0x6400UL)
 
 /* ══════════════════════════════════════════════════════════════════════
  * Peripheral Register Structures
@@ -600,6 +611,194 @@ typedef struct {
   __IO uint32_t AFR[2U]; /**< 0x20-0x24 GPIO alternate function registers    */
 } GPIO_TypeDef;
 
+/* ── DMA (DMA Controller) ─────────────────────────────────────────── */
+/* Reference: RM0383 Rev 4, Chapter 9 */
+
+typedef struct {
+  union {
+    __IO uint32_t reg;         /**< 0x00 Configuration register */
+    struct {
+      __IO uint32_t EN         : 1;  /**< [0] Stream enable / flag stream ready */
+      __IO uint32_t DMEIE      : 1;  /**< [1] Direct mode error interrupt enable */
+      __IO uint32_t TEIE       : 1;  /**< [2] Transfer error interrupt enable */
+      __IO uint32_t HTIE       : 1;  /**< [3] Half transfer interrupt enable */
+      __IO uint32_t TCIE       : 1;  /**< [4] Transfer complete interrupt enable */
+      __IO uint32_t PFCTRL     : 1;  /**< [5] Peripheral flow controller */
+      __IO uint32_t DIR        : 2;  /**< [7:6] Data transfer direction */
+      __IO uint32_t CIRC       : 1;  /**< [8] Circular mode */
+      __IO uint32_t PINC       : 1;  /**< [9] Peripheral increment mode */
+      __IO uint32_t MINC       : 1;  /**< [10] Memory increment mode */
+      __IO uint32_t PSIZE      : 2;  /**< [12:11] Peripheral data size */
+      __IO uint32_t MSIZE      : 2;  /**< [14:13] Memory data size */
+      __IO uint32_t PINCOS     : 1;  /**< [15] Peripheral increment offset size */
+      __IO uint32_t PL         : 2;  /**< [17:16] Priority level */
+      __IO uint32_t DBM        : 1;  /**< [18] Double buffer mode */
+      __IO uint32_t CT         : 1;  /**< [19] Current target (in double buffer mode) */
+      uint32_t                 : 1;  /**< [20] Reserved */
+      __IO uint32_t PBURST     : 2;  /**< [22:21] Peripheral burst transfer */
+      __IO uint32_t MBURST     : 2;  /**< [24:23] Memory burst transfer */
+      __IO uint32_t CHSEL      : 3;  /**< [27:25] Channel selection */
+      uint32_t                 : 4;  /**< [31:28] Reserved */
+    } bit;
+  } CR;
+
+  union {
+    __IO uint32_t reg;         /**< 0x04 Number of data register */
+    struct {
+      __IO uint32_t NDT        : 16; /**< [15:0] Number of data items to transfer */
+      uint32_t                 : 16; /**< [31:16] Reserved */
+    } bit;
+  } NDTR;
+
+  __IO uint32_t PAR;           /**< 0x08 Peripheral address register */
+  __IO uint32_t M0AR;          /**< 0x0C Memory 0 address register */
+  __IO uint32_t M1AR;          /**< 0x10 Memory 1 address register */
+
+  union {
+    __IO uint32_t reg;         /**< 0x14 FIFO control register */
+    struct {
+      __IO uint32_t FTH        : 2;  /**< [1:0] FIFO threshold selection */
+      __IO uint32_t DMDIS      : 1;  /**< [2] Direct mode disable */
+      __I  uint32_t FS         : 3;  /**< [5:3] FIFO status */
+      uint32_t                 : 1;  /**< [6] Reserved */
+      __IO uint32_t FEIE       : 1;  /**< [7] FIFO error interrupt enable */
+      uint32_t                 : 24; /**< [31:8] Reserved */
+    } bit;
+  } FCR;
+} DMA_Stream_TypeDef;
+
+typedef struct {
+  union {
+    __I uint32_t reg;           /**< 0x00 Low interrupt status register */
+    struct {
+      __I uint32_t FEIF0       : 1;  /**< [0] Stream 0 FIFO error */
+      uint32_t                 : 1;  /**< [1] Reserved */
+      __I uint32_t DMEIF0      : 1;  /**< [2] Stream 0 Direct mode error */
+      __I uint32_t TEIF0       : 1;  /**< [3] Stream 0 Transfer error */
+      __I uint32_t HTIF0       : 1;  /**< [4] Stream 0 Half transfer */
+      __I uint32_t TCIF0       : 1;  /**< [5] Stream 0 Transfer complete */
+      __I uint32_t FEIF1       : 1;  /**< [6] Stream 1 FIFO error */
+      uint32_t                 : 1;  /**< [7] Reserved */
+      __I uint32_t DMEIF1      : 1;  /**< [8] Stream 1 Direct mode error */
+      __I uint32_t TEIF1       : 1;  /**< [9] Stream 1 Transfer error */
+      __I uint32_t HTIF1       : 1;  /**< [10] Stream 1 Half transfer */
+      __I uint32_t TCIF1       : 1;  /**< [11] Stream 1 Transfer complete */
+      uint32_t                 : 4;  /**< [15:12] Reserved */
+      __I uint32_t FEIF2       : 1;  /**< [16] Stream 2 FIFO error */
+      uint32_t                 : 1;  /**< [17] Reserved */
+      __I uint32_t DMEIF2      : 1;  /**< [18] Stream 2 Direct mode error */
+      __I uint32_t TEIF2       : 1;  /**< [19] Stream 2 Transfer error */
+      __I uint32_t HTIF2       : 1;  /**< [20] Stream 2 Half transfer */
+      __I uint32_t TCIF2       : 1;  /**< [21] Stream 2 Transfer complete */
+      __I uint32_t FEIF3       : 1;  /**< [22] Stream 3 FIFO error */
+      uint32_t                 : 1;  /**< [23] Reserved */
+      __I uint32_t DMEIF3      : 1;  /**< [24] Stream 3 Direct mode error */
+      __I uint32_t TEIF3       : 1;  /**< [25] Stream 3 Transfer error */
+      __I uint32_t HTIF3       : 1;  /**< [26] Stream 3 Half transfer */
+      __I uint32_t TCIF3       : 1;  /**< [27] Stream 3 Transfer complete */
+      uint32_t                 : 4;  /**< [31:28] Reserved */
+    } bit;
+  } LISR;
+
+  union {
+    __I uint32_t reg;           /**< 0x04 High interrupt status register */
+    struct {
+      __I uint32_t FEIF4       : 1;  /**< [0] Stream 4 FIFO error */
+      uint32_t                 : 1;  /**< [1] Reserved */
+      __I uint32_t DMEIF4      : 1;  /**< [2] Stream 4 Direct mode error */
+      __I uint32_t TEIF4       : 1;  /**< [3] Stream 4 Transfer error */
+      __I uint32_t HTIF4       : 1;  /**< [4] Stream 4 Half transfer */
+      __I uint32_t TCIF4       : 1;  /**< [5] Stream 4 Transfer complete */
+      __I uint32_t FEIF5       : 1;  /**< [6] Stream 5 FIFO error */
+      uint32_t                 : 1;  /**< [7] Reserved */
+      __I uint32_t DMEIF5      : 1;  /**< [8] Stream 5 Direct mode error */
+      __I uint32_t TEIF5       : 1;  /**< [9] Stream 5 Transfer error */
+      __I uint32_t HTIF5       : 1;  /**< [10] Stream 5 Half transfer */
+      __I uint32_t TCIF5       : 1;  /**< [11] Stream 5 Transfer complete */
+      uint32_t                 : 4;  /**< [15:12] Reserved */
+      __I uint32_t FEIF6       : 1;  /**< [16] Stream 6 FIFO error */
+      uint32_t                 : 1;  /**< [17] Reserved */
+      __I uint32_t DMEIF6      : 1;  /**< [18] Stream 6 Direct mode error */
+      __I uint32_t TEIF6       : 1;  /**< [19] Stream 6 Transfer error */
+      __I uint32_t HTIF6       : 1;  /**< [20] Stream 6 Half transfer */
+      __I uint32_t TCIF6       : 1;  /**< [21] Stream 6 Transfer complete */
+      __I uint32_t FEIF7       : 1;  /**< [22] Stream 7 FIFO error */
+      uint32_t                 : 1;  /**< [23] Reserved */
+      __I uint32_t DMEIF7      : 1;  /**< [24] Stream 7 Direct mode error */
+      __I uint32_t TEIF7       : 1;  /**< [25] Stream 7 Transfer error */
+      __I uint32_t HTIF7       : 1;  /**< [26] Stream 7 Half transfer */
+      __I uint32_t TCIF7       : 1;  /**< [27] Stream 7 Transfer complete */
+      uint32_t                 : 4;  /**< [31:28] Reserved */
+    } bit;
+  } HISR;
+
+  union {
+    __O uint32_t reg;          /**< 0x08 Low interrupt flag clear register */
+    struct {
+      __IO uint32_t CFEIF0     : 1;  /**< [0] Clear Stream 0 FIFO error */
+      uint32_t                 : 1;  /**< [1] Reserved */
+      __IO uint32_t CDMEIF0    : 1;  /**< [2] Clear Stream 0 Direct mode error */
+      __IO uint32_t CTEIF0     : 1;  /**< [3] Clear Stream 0 Transfer error */
+      __IO uint32_t CHTIF0     : 1;  /**< [4] Clear Stream 0 Half transfer */
+      __IO uint32_t CTCIF0     : 1;  /**< [5] Clear Stream 0 Transfer complete */
+      __IO uint32_t CFEIF1     : 1;  /**< [6] Clear Stream 1 FIFO error */
+      uint32_t                 : 1;  /**< [7] Reserved */
+      __IO uint32_t CDMEIF1    : 1;  /**< [8] Clear Stream 1 Direct mode error */
+      __IO uint32_t CTEIF1     : 1;  /**< [9] Clear Stream 1 Transfer error */
+      __IO uint32_t CHTIF1     : 1;  /**< [10] Clear Stream 1 Half transfer */
+      __IO uint32_t CTCIF1     : 1;  /**< [11] Clear Stream 1 Transfer complete */
+      uint32_t                 : 4;  /**< [15:12] Reserved */
+      __IO uint32_t CFEIF2     : 1;  /**< [16] Clear Stream 2 FIFO error */
+      uint32_t                 : 1;  /**< [17] Reserved */
+      __IO uint32_t CDMEIF2    : 1;  /**< [18] Clear Stream 2 Direct mode error */
+      __IO uint32_t CTEIF2     : 1;  /**< [19] Clear Stream 2 Transfer error */
+      __IO uint32_t CHTIF2     : 1;  /**< [20] Clear Stream 2 Half transfer */
+      __IO uint32_t CTCIF2     : 1;  /**< [21] Clear Stream 2 Transfer complete */
+      __IO uint32_t CFEIF3     : 1;  /**< [22] Clear Stream 3 FIFO error */
+      uint32_t                 : 1;  /**< [23] Reserved */
+      __IO uint32_t CDMEIF3    : 1;  /**< [24] Clear Stream 3 Direct mode error */
+      __IO uint32_t CTEIF3     : 1;  /**< [25] Clear Stream 3 Transfer error */
+      __IO uint32_t CHTIF3     : 1;  /**< [26] Clear Stream 3 Half transfer */
+      __IO uint32_t CTCIF3     : 1;  /**< [27] Clear Stream 3 Transfer complete */
+      uint32_t                 : 4;  /**< [31:28] Reserved */
+    } bit;
+  } LIFCR;
+
+  union {
+    __O uint32_t reg;          /**< 0x0C High interrupt flag clear register */
+    struct {
+      __IO uint32_t CFEIF4     : 1;  /**< [0] Clear Stream 4 FIFO error */
+      uint32_t                 : 1;  /**< [1] Reserved */
+      __IO uint32_t CDMEIF4    : 1;  /**< [2] Clear Stream 4 Direct mode error */
+      __IO uint32_t CTEIF4     : 1;  /**< [3] Clear Stream 4 Transfer error */
+      __IO uint32_t CHTIF4     : 1;  /**< [4] Clear Stream 4 Half transfer */
+      __IO uint32_t CTCIF4     : 1;  /**< [5] Clear Stream 4 Transfer complete */
+      __IO uint32_t CFEIF5     : 1;  /**< [6] Clear Stream 5 FIFO error */
+      uint32_t                 : 1;  /**< [7] Reserved */
+      __IO uint32_t CDMEIF5    : 1;  /**< [8] Clear Stream 5 Direct mode error */
+      __IO uint32_t CTEIF5     : 1;  /**< [9] Clear Stream 5 Transfer error */
+      __IO uint32_t CHTIF5     : 1;  /**< [10] Clear Stream 5 Half transfer */
+      __IO uint32_t CTCIF5     : 1;  /**< [11] Clear Stream 5 Transfer complete */
+      uint32_t                 : 4;  /**< [15:12] Reserved */
+      __IO uint32_t CFEIF6     : 1;  /**< [16] Clear Stream 6 FIFO error */
+      uint32_t                 : 1;  /**< [17] Reserved */
+      __IO uint32_t CDMEIF6    : 1;  /**< [18] Clear Stream 6 Direct mode error */
+      __IO uint32_t CTEIF6     : 1;  /**< [19] Clear Stream 6 Transfer error */
+      __IO uint32_t CHTIF6     : 1;  /**< [20] Clear Stream 6 Half transfer */
+      __IO uint32_t CTCIF6     : 1;  /**< [21] Clear Stream 6 Transfer complete */
+      __IO uint32_t CFEIF7     : 1;  /**< [22] Clear Stream 7 FIFO error */
+      uint32_t                 : 1;  /**< [23] Reserved */
+      __IO uint32_t CDMEIF7    : 1;  /**< [24] Clear Stream 7 Direct mode error */
+      __IO uint32_t CTEIF7     : 1;  /**< [25] Clear Stream 7 Transfer error */
+      __IO uint32_t CHTIF7     : 1;  /**< [26] Clear Stream 7 Half transfer */
+      __IO uint32_t CTCIF7     : 1;  /**< [27] Clear Stream 7 Transfer complete */
+      uint32_t                 : 4;  /**< [31:28] Reserved */
+    } bit;
+  } HIFCR;
+
+  DMA_Stream_TypeDef Stream[8U]; /**< 0x10-0xCF DMA Streams 0 to 7 */
+} DMA_TypeDef;
+
 /* ── I2C (Inter-integrated Circuit) ────────────────────────────────── */
 /* Reference: RM0383 Rev 3, Chapter 18 */
 typedef struct {
@@ -763,6 +962,27 @@ typedef struct {
 #define SPI3 ((SPI_TypeDef *)SPI3_BASE)
 #define SPI4 ((SPI_TypeDef *)SPI4_BASE)
 #define SPI5 ((SPI_TypeDef *)SPI5_BASE)
+
+#define DMA1 ((DMA_TypeDef *)DMA1_BASE)
+#define DMA2 ((DMA_TypeDef *)DMA2_BASE)
+
+#define DMA1_Stream0 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x010UL))
+#define DMA1_Stream1 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x028UL))
+#define DMA1_Stream2 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x040UL))
+#define DMA1_Stream3 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x058UL))
+#define DMA1_Stream4 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x070UL))
+#define DMA1_Stream5 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x088UL))
+#define DMA1_Stream6 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x0A0UL))
+#define DMA1_Stream7 ((DMA_Stream_TypeDef *)(DMA1_BASE + 0x0B8UL))
+
+#define DMA2_Stream0 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x010UL))
+#define DMA2_Stream1 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x028UL))
+#define DMA2_Stream2 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x040UL))
+#define DMA2_Stream3 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x058UL))
+#define DMA2_Stream4 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x070UL))
+#define DMA2_Stream5 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x088UL))
+#define DMA2_Stream6 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x0A0UL))
+#define DMA2_Stream7 ((DMA_Stream_TypeDef *)(DMA2_BASE + 0x0B8UL))
 
 /* ══════════════════════════════════════════════════════════════════════
  * RCC Bit Definitions
@@ -1087,6 +1307,124 @@ typedef struct {
 #define USART_CR3_CTSIE      (1U << USART_CR3_CTSIE_Pos)
 #define USART_CR3_ONEBIT_Pos (11U)
 #define USART_CR3_ONEBIT     (1U << USART_CR3_ONEBIT_Pos)
+
+/* ── DMA_SxCR ───────────────────────────────────────────────────────── */
+
+/* Bit 0: Stream enable */
+#define DMA_SxCR_EN_Pos          (0U)
+#define DMA_SxCR_EN              (1U << DMA_SxCR_EN_Pos)
+
+/* Bit 1: Direct mode error interrupt enable */
+#define DMA_SxCR_DMEIE_Pos       (1U)
+#define DMA_SxCR_DMEIE           (1U << DMA_SxCR_DMEIE_Pos)
+
+/* Bit 2: Transfer error interrupt enable */
+#define DMA_SxCR_TEIE_Pos        (2U)
+#define DMA_SxCR_TEIE            (1U << DMA_SxCR_TEIE_Pos)
+
+/* Bit 3: Half transfer interrupt enable */
+#define DMA_SxCR_HTIE_Pos        (3U)
+#define DMA_SxCR_HTIE            (1U << DMA_SxCR_HTIE_Pos)
+
+/* Bit 4: Transfer complete interrupt enable */
+#define DMA_SxCR_TCIE_Pos        (4U)
+#define DMA_SxCR_TCIE            (1U << DMA_SxCR_TCIE_Pos)
+
+/* Bit 5: Peripheral flow controller */
+#define DMA_SxCR_PFCTRL_Pos      (5U)
+#define DMA_SxCR_PFCTRL          (1U << DMA_SxCR_PFCTRL_Pos)
+
+/* Bits 7:6 DIR: Data transfer direction */
+#define DMA_SxCR_DIR_Pos         (6U)
+#define DMA_SxCR_DIR_Msk         (0x3U << DMA_SxCR_DIR_Pos)
+
+/* Bit 8: Circular mode */
+#define DMA_SxCR_CIRC_Pos        (8U)
+#define DMA_SxCR_CIRC            (1U << DMA_SxCR_CIRC_Pos)
+
+/* Bit 9: Peripheral increment mode */
+#define DMA_SxCR_PINC_Pos        (9U)
+#define DMA_SxCR_PINC            (1U << DMA_SxCR_PINC_Pos)
+
+/* Bit 10: Memory increment mode */
+#define DMA_SxCR_MINC_Pos        (10U)
+#define DMA_SxCR_MINC            (1U << DMA_SxCR_MINC_Pos)
+
+/* Bits 12:11 PSIZE: Peripheral data size */
+#define DMA_SxCR_PSIZE_Pos       (11U)
+#define DMA_SxCR_PSIZE_Msk       (0x3U << DMA_SxCR_PSIZE_Pos)
+
+/* Bits 14:13 MSIZE: Memory data size */
+#define DMA_SxCR_MSIZE_Pos       (13U)
+#define DMA_SxCR_MSIZE_Msk       (0x3U << DMA_SxCR_MSIZE_Pos)
+
+/* Bit 15: Peripheral increment offset size */
+#define DMA_SxCR_PINCOS_Pos      (15U)
+#define DMA_SxCR_PINCOS          (1U << DMA_SxCR_PINCOS_Pos)
+
+/* Bits 17:16 PL: Priority level */
+#define DMA_SxCR_PL_Pos          (16U)
+#define DMA_SxCR_PL_Msk          (0x3U << DMA_SxCR_PL_Pos)
+
+/* Bit 18: Double buffer mode */
+#define DMA_SxCR_DBM_Pos         (18U)
+#define DMA_SxCR_DBM             (1U << DMA_SxCR_DBM_Pos)
+
+/* Bit 19: Current target (in double buffer mode) */
+#define DMA_SxCR_CT_Pos          (19U)
+#define DMA_SxCR_CT              (1U << DMA_SxCR_CT_Pos)
+
+/* Bits 22:21 PBURST: Peripheral burst transfer configuration */
+#define DMA_SxCR_PBURST_Pos      (21U)
+#define DMA_SxCR_PBURST_Msk      (0x3U << DMA_SxCR_PBURST_Pos)
+
+/* Bits 24:23 MBURST: Memory burst transfer configuration */
+#define DMA_SxCR_MBURST_Pos      (23U)
+#define DMA_SxCR_MBURST_Msk      (0x3U << DMA_SxCR_MBURST_Pos)
+
+/* Bits 27:25 CHSEL: Channel selection */
+#define DMA_SxCR_CHSEL_Pos       (25U)
+#define DMA_SxCR_CHSEL_Msk       (0x7U << DMA_SxCR_CHSEL_Pos)
+
+/* ── DMA_SxFCR   ────────────────────────────────────────────────────── */
+/* Bits 1:0 FTH: FIFO threshold selection */
+#define DMA_SxFCR_FTH_Pos        (0U)
+#define DMA_SxFCR_FTH_Msk        (0x3U << DMA_SxFCR_FTH_Pos)
+
+/* Bit 2: Direct mode disable */
+#define DMA_SxFCR_DMDIS_Pos      (2U)
+#define DMA_SxFCR_DMDIS          (1U << DMA_SxFCR_DMDIS_Pos)
+
+/* Bits 5:3 FS: FIFO status */
+#define DMA_SxFCR_FS_Pos         (3U)
+#define DMA_SxFCR_FS_Msk         (0x7U << DMA_SxFCR_FS_Pos)
+
+/* Bit 7: FIFO error interrupt enable */
+#define DMA_SxFCR_FEIE_Pos       (7U)
+#define DMA_SxFCR_FEIE           (1U << DMA_SxFCR_FEIE_Pos)
+
+/* ── DMA ───────── */
+
+/* --- Stream 0 Interrupt Flags (Bits 0:5) --- */
+#define DMA_FEIF_Pos       (0U)
+#define DMA_FEIF           (1U << DMA_FEIF_Pos)
+
+#define DMA_DMEIF_Pos      (2U)
+#define DMA_DMEIF          (1U << DMA_DMEIF_Pos)
+
+#define DMA_TEIF_Pos       (3U)
+#define DMA_TEIF           (1U << DMA_TEIF_Pos)
+
+#define DMA_HTIF_Pos       (4U)
+#define DMA_HTIF           (1U << DMA_HTIF_Pos)
+
+#define DMA_TCIF_Pos       (5U)
+#define DMA_TCIF           (1U << DMA_TCIF_Pos)
+
+/* ── DMA_SxNDTR ─────────────────────────────────────────────────────── */
+#define DMA_SxNDTR_NDT_Pos   (0U)
+#define DMA_SxNDTR_NDT_Msk   (0xFFFFU << DMA_SxNDTR_NDT_Pos)
+#define DMA_SxNDTR_NDT       DMA_SxNDTR_NDT_Msk
 
 /* ══════════════════════════════════════════════════════════════════════
  * Cortex-M4 Core — SysTick Timer

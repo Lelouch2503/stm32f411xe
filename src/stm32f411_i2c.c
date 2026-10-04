@@ -14,8 +14,8 @@
 #define I2C_PCLK1_MAX_HZ 50000000U
 #define I2C_STANDARD_MAX_HZ 100000U
 #define I2C_FAST_MAX_HZ 400000U
-#define I2C_ERROR_FLAGS (I2C_SR1_BERR | I2C_SR1_ARLO | I2C_SR1_AF | \
-                         I2C_SR1_OVR | I2C_SR1_TIMEOUT)
+#define I2C_ERROR_FLAGS                                                        \
+  (I2C_SR1_BERR | I2C_SR1_ARLO | I2C_SR1_AF | I2C_SR1_OVR | I2C_SR1_TIMEOUT)
 
 static int i2c_is_supported(const I2C_TypeDef *instance) {
   return (instance == I2C1) || (instance == I2C2) || (instance == I2C3);
@@ -48,29 +48,39 @@ static int i2c_configure_pins(I2C_TypeDef *instance) {
   GPIO_Pin_t sda_pin;
 
   if (instance == I2C1) {
-    scl_port = GPIOB; scl_pin = GPIO_PIN_6;
-    sda_port = GPIOB; sda_pin = GPIO_PIN_7;
+    scl_port = GPIOB;
+    scl_pin = GPIO_PIN_6;
+    sda_port = GPIOB;
+    sda_pin = GPIO_PIN_7;
     rcc_ahb1_clk_enable(RCC_AHB1ENR_GPIOBEN);
   } else if (instance == I2C2) {
-    scl_port = GPIOB; scl_pin = GPIO_PIN_10;
-    sda_port = GPIOB; sda_pin = GPIO_PIN_11;
+    scl_port = GPIOB;
+    scl_pin = GPIO_PIN_10;
+    sda_port = GPIOB;
+    sda_pin = GPIO_PIN_11;
     rcc_ahb1_clk_enable(RCC_AHB1ENR_GPIOBEN);
   } else if (instance == I2C3) {
-    scl_port = GPIOA; scl_pin = GPIO_PIN_8;
-    sda_port = GPIOC; sda_pin = GPIO_PIN_9;
+    scl_port = GPIOA;
+    scl_pin = GPIO_PIN_8;
+    sda_port = GPIOC;
+    sda_pin = GPIO_PIN_9;
     rcc_ahb1_clk_enable(RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOCEN);
   } else {
     return I2C_ERROR_INVALID_PARAM;
   }
 
-  GPIO_PinConfig_t scl_cfg = {
-      .pin = scl_pin, .mode = GPIO_MODE_ALTFUNC,
-      .otype = GPIO_OTYPE_OPENDRAIN, .ospeed = GPIO_OSPEED_FAST,
-      .pupd = GPIO_PUPD_NONE, .alt_func = GPIO_AF4_I2C1_I2C3};
-  GPIO_PinConfig_t sda_cfg = {
-      .pin = sda_pin, .mode = GPIO_MODE_ALTFUNC,
-      .otype = GPIO_OTYPE_OPENDRAIN, .ospeed = GPIO_OSPEED_FAST,
-      .pupd = GPIO_PUPD_NONE, .alt_func = GPIO_AF4_I2C1_I2C3};
+  GPIO_PinConfig_t scl_cfg = {.pin = scl_pin,
+                              .mode = GPIO_MODE_ALTFUNC,
+                              .otype = GPIO_OTYPE_OPENDRAIN,
+                              .ospeed = GPIO_OSPEED_FAST,
+                              .pupd = GPIO_PUPD_PULLUP,
+                              .alt_func = GPIO_AF4_I2C1_I2C3};
+  GPIO_PinConfig_t sda_cfg = {.pin = sda_pin,
+                              .mode = GPIO_MODE_ALTFUNC,
+                              .otype = GPIO_OTYPE_OPENDRAIN,
+                              .ospeed = GPIO_OSPEED_FAST,
+                              .pupd = GPIO_PUPD_PULLUP,
+                              .alt_func = GPIO_AF4_I2C1_I2C3};
 
   if (gpio_init(scl_port, &scl_cfg) != 0) {
     return I2C_ERROR_INVALID_PARAM;
@@ -132,15 +142,13 @@ static int i2c_send_address(I2C_TypeDef *instance, uint16_t address,
   return i2c_wait_sr1(instance, I2C_SR1_ADDR, timeout);
 }
 
-static void i2c_stop(I2C_TypeDef *instance) {
-  instance->CR1 |= I2C_CR1_STOP;
-}
+static void i2c_stop(I2C_TypeDef *instance) { instance->CR1 |= I2C_CR1_STOP; }
 
 static int i2c_validate_transfer(I2C_TypeDef *instance, uint16_t address,
                                  const void *data, uint32_t length,
                                  uint32_t timeout, uint32_t zero_allowed) {
-  if (!i2c_is_supported(instance) || (address < 0x08U) ||
-      (address > 0x77U) || (timeout == 0U) ||
+  if (!i2c_is_supported(instance) || (address < 0x08U) || (address > 0x77U) ||
+      (timeout == 0U) ||
       ((data == NULL) && ((length != 0U) || (zero_allowed == 0U)))) {
     return I2C_ERROR_INVALID_PARAM;
   }
@@ -271,7 +279,8 @@ int i2c_init(I2C_TypeDef *instance, const I2C_Config_t *config) {
 int i2c_master_transmit(I2C_TypeDef *instance, uint16_t address,
                         const uint8_t *data, uint32_t length,
                         uint32_t timeout) {
-  int status = i2c_validate_transfer(instance, address, data, length, timeout, 1U);
+  int status =
+      i2c_validate_transfer(instance, address, data, length, timeout, 1U);
   if (status != 0) {
     return status;
   }
@@ -305,9 +314,10 @@ int i2c_master_transmit(I2C_TypeDef *instance, uint16_t address,
   return status;
 }
 
-int i2c_master_receive(I2C_TypeDef *instance, uint16_t address,
-                       uint8_t *data, uint32_t length, uint32_t timeout) {
-  int status = i2c_validate_transfer(instance, address, data, length, timeout, 0U);
+int i2c_master_receive(I2C_TypeDef *instance, uint16_t address, uint8_t *data,
+                       uint32_t length, uint32_t timeout) {
+  int status =
+      i2c_validate_transfer(instance, address, data, length, timeout, 0U);
   if ((status != 0) || (length == 0U)) {
     return (status != 0) ? status : I2C_ERROR_INVALID_PARAM;
   }
@@ -329,7 +339,8 @@ int i2c_master_receive(I2C_TypeDef *instance, uint16_t address,
 int i2c_mem_read(I2C_TypeDef *instance, uint16_t address,
                  uint8_t register_address, uint8_t *data, uint32_t length,
                  uint32_t timeout) {
-  int status = i2c_validate_transfer(instance, address, data, length, timeout, 0U);
+  int status =
+      i2c_validate_transfer(instance, address, data, length, timeout, 0U);
   if ((status != 0) || (length == 0U)) {
     return (status != 0) ? status : I2C_ERROR_INVALID_PARAM;
   }

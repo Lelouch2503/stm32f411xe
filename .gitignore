@@ -3,3 +3,5 @@
 /build-test/
 /docs/
 *.dis
+/.agents/
+/.vscode/

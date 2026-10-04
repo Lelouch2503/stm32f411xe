@@ -48,11 +48,23 @@ set(SOURCES
     main.c
     startup/startup_stm32f411ve.s
     startup/rtos_port.s
+
+    src/rtos_ipc.c
+    src/rtos_kernel.c
+    src/rtos_port.c
+    src/stm32f411_dma.c
+    src/stm32f411_gpio.c
+    src/stm32f411_i2c.c
+    src/stm32f411_nvic.c
+    src/stm32f411_rcc.c
+    src/stm32f411_spi.c
+    src/stm32f411_systick.c
+    src/stm32f411_usart.c
 )
 
-# Driver source files (src/*.c)
-file(GLOB SRC_FILES CONFIGURE_DEPENDS src/*.c)
-list(APPEND SOURCES ${SRC_FILES})
+# # Driver source files (src/*.c)
+# file(GLOB SRC_FILES CONFIGURE_DEPENDS src/*.c)
+# list(APPEND SOURCES ${SRC_FILES})
 
 # ── Include directories ─────────────────────────────────────────────
 set(INCLUDE_DIRS

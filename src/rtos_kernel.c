@@ -179,8 +179,7 @@ static int rtos_task_add(RTOS_Task_t *task,
     uintptr_t new_high = new_low +
                          ((uintptr_t)stack_words * sizeof(RTOS_StackWord_t));
     uint32_t existing_index;
-    for (existing_index = 0U; existing_index < rtos_task_count;
-         existing_index++) {
+    for (existing_index = 0U; existing_index < rtos_task_count; existing_index++) {
       RTOS_Task_t *existing = rtos_tasks[existing_index];
       uintptr_t existing_low = (uintptr_t)existing->stack_base;
       uintptr_t existing_high = existing_low +

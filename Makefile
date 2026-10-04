@@ -17,14 +17,15 @@
 ##############################################################################
 
 # ── Configuration ───────────────────────────────────────────────────
-BUILD_DIR    := build
-TEST_DIR     := build-test
-BUILD_TYPE   := Debug
-TOOLCHAIN    := cmake/arm-none-eabi-gcc.cmake
-TARGET       := stm32f411xe
-ELF          := $(BUILD_DIR)/$(TARGET).elf
-BIN          := $(BUILD_DIR)/$(TARGET).bin
-HEX          := $(BUILD_DIR)/$(TARGET).hex
+BUILD_DIR     := build
+BUILD_RELEASE := build-release
+TEST_DIR      := build-test
+BUILD_TYPE    := Debug
+TOOLCHAIN     := cmake/arm-none-eabi-gcc.cmake
+TARGET        := stm32f411xe
+ELF           := $(BUILD_DIR)/$(TARGET).elf
+BIN           := $(BUILD_DIR)/$(TARGET).bin
+HEX           := $(BUILD_DIR)/$(TARGET).hex
 
 # OpenOCD (Windows – USB is only accessible from Windows side)
 OPENOCD_DIR  := /mnt/c/openocd/xpack-openocd-0.12.0-7
@@ -70,7 +71,7 @@ docs:
 
 # ── Clean ───────────────────────────────────────────────────────────
 clean:
-	rm -rf $(BUILD_DIR) docs $(TEST_DIR)
+	rm -rf $(BUILD_DIR) docs $(TEST_DIR) $(BUILD_RELEASE)
 
 # ── Rebuild (clean + build) ─────────────────────────────────────────
 rebuild: clean build

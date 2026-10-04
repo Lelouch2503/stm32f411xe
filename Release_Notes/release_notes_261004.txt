@@ -1,0 +1,8 @@
+Release date: Oct/04/2026
+
+[Coding]
+    + Update DMA driver firmware
+
+[CMakeLists]
+    + Add stm32f411_dma.c/.h 
+    + Define macro and struct for DMA feature
