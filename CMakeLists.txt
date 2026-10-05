@@ -68,7 +68,13 @@ set(SOURCES
 
 # ── Include directories ─────────────────────────────────────────────
 set(INCLUDE_DIRS
-    ${CMAKE_SOURCE_DIR}/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/driver/inc
+)
+
+add_library(cmsis_core INTERFACE)
+
+target_include_directories(cmsis_core INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/driver/Common
 )
 
 # ── Executable target ───────────────────────────────────────────────
@@ -80,7 +86,13 @@ set(MAP_FILE ${TARGET}.map)
 
 add_executable(${ELF_FILE} ${SOURCES})
 
-target_include_directories(${ELF_FILE} PRIVATE ${INCLUDE_DIRS})
+target_include_directories(${ELF_FILE} PRIVATE
+    ${INCLUDE_DIRS}
+)
+
+target_link_libraries(${ELF_FILE} PRIVATE
+    cmsis_core
+)
 
 # ── Linker flags ────────────────────────────────────────────────────
 target_link_options(${ELF_FILE} PRIVATE
